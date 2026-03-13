@@ -59,48 +59,36 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
     top: 75%;
     left: 0;
     width: 100%;
-    height: 0;
-    z-index: 999;
-    display: flex;
-    align-items: center;
-    pointer-events: none;
-    transform: translateY(0);
-}
-.train-cursor::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
     height: 1px;
+    z-index: 999;
+    pointer-events: none;
     background: linear-gradient(90deg, transparent 0%, var(--accent-blue) 20%, var(--accent-blue) 80%, transparent 100%);
     box-shadow: 0 0 8px var(--accent-blue);
-    opacity: 0.7;
+    opacity: 0.9;
 }
-.train-shape { position: absolute; left: 45px; width: 34px; height: 34px; background: #25282c; border: 3px solid var(--accent-blue); border-radius: 50%; box-shadow: 0 0 15px var(--accent-blue); z-index: 51; transform: translateY(-50%); }
-.train-shape::after { content: ''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; background:var(--accent-blue); border-radius:50%; }
+
 .pk-calib-container {
-    position: absolute;
-    right: 15px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    pointer-events: auto;
-    z-index: 501;
-    top: 75%;
-    transform: translateY(-50%);
+position: absolute;
+right: 15px;
+display: flex;
+align-items: center;
+gap: 15px;
+pointer-events: auto;
+z-index: 501;
+top: 75%;
+transform: translateY(-50%);
 }.btn-calib { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.05); backdrop-filter: blur(5px); border: none; border-top: 1px solid rgba(255,255,255,0.5); border-left: 1px solid rgba(255,255,255,0.5); color: white; font-size: 30px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 8px 8px 20px rgba(0,0,0,0.5), inset 2px 2px 3px rgba(255,255,255,0.3); transition: transform 0.1s; touch-action: manipulation; }
-.btn-calib:active { background: var(--accent-blue); color: black; transform: scale(0.95); box-shadow: inset 3px 3px 10px rgba(0,0,0,0.4); }
-.train-pk-label { font-family: var(--font-mono); font-size: 28px; font-weight: 900; color: var(--accent-blue); text-shadow: 0 0 10px rgba(0,210,255,0.5); background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(0,210,255,0.3); box-shadow: 5px 5px 15px rgba(0,0,0,0.5); }
+.btn-calib:active { background: var(–accent-blue); color: black; transform: scale(0.95); box-shadow: inset 3px 3px 10px rgba(0,0,0,0.4); }
+.train-pk-label { font-family: var(–font-mono); font-size: 28px; font-weight: 900; color: var(–accent-blue); text-shadow: 0 0 10px rgba(0,210,255,0.5); background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(0,210,255,0.3); box-shadow: 5px 5px 15px rgba(0,0,0,0.5); }
 #objectsContainer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; }
 .track-obj { position: absolute; left: 100px; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; transition: transform 0.1s; z-index: 20; }
-.track-obj::before { content: ''; position: absolute; left: -40px; width: 36px; height: 1px; background: rgba(255,255,255,0.3); }
+.track-obj::before { content: ‘’; position: absolute; left: -40px; width: 36px; height: 1px; background: rgba(255,255,255,0.3); top: 50%; transform: translateY(-50%); }
 .obj-card { background: rgba(45, 50, 60, 0.95); padding: 8px 14px; border-radius: 4px; border-left: 5px solid #555; min-width: 200px; box-shadow: 5px 5px 15px rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.1); }
 .obj-name { font-weight: 700; font-size: 17px; color: #eee; }
-.obj-pk { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.obj-pk { font-family: var(–font-mono); font-size: 13px; color: var(–text-dim); margin-top: 2px; }
 .type-GARE .obj-card { border-color: #fff; background: rgba(70,75,85,0.95); }
-.type-VITESSE .obj-card { border-color: var(--accent-red); } .type-VITESSE .obj-name { color: var(--accent-red); font-size: 20px; }
-.type-SIGNAL .obj-card { border-color: var(--accent-orange); }
+.type-VITESSE .obj-card { border-color: var(–accent-red); } .type-VITESSE .obj-name { color: var(–accent-red); font-size: 20px; }
+.type-SIGNAL .obj-card { border-color: var(–accent-orange); }
 .type-SIGNAL_CS .obj-card { border-color: #e056fd; }
 .type-ORDRE .obj-card { border-color: #f1c40f; background: rgba(60,50,10,0.95); }
 .type-ORDRE_FIN .obj-card { border-color: #aaa; border-left-style: dashed; background: rgba(40,40,40,0.9); }
@@ -108,18 +96,18 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
 .track-obj.active { transform: translateY(-50%) scale(1.05); z-index: 50; filter: brightness(1.3); }
 .info-floater { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 20px; z-index: 1000; padding: 15px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 220px; text-align: center; }
 .info-sep { height: 1px; background: rgba(255,255,255,0.1); width: 80%; margin: 0 auto; }
-.info-label { font-size: 11px; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
+.info-label { font-size: 11px; color: var(–accent-blue); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
 .info-val { font-weight: 900; font-size: 18px; color: white; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
-.info-val.station { color: var(--accent-green); font-size: 22px; }
-.small-pk { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
-.big-pk { font-family: var(--font-mono); font-size: 22px; font-weight: 900; color: var(--accent-blue); display: block; margin-top: 4px; }
-.dist-badge { font-size: 14px; color: var(--accent-orange); margin-left: 8px; font-weight: normal; vertical-align: middle; }
+.info-val.station { color: var(–accent-green); font-size: 22px; }
+.small-pk { font-family: var(–font-mono); font-size: 12px; color: var(–text-dim); }
+.big-pk { font-family: var(–font-mono); font-size: 22px; font-weight: 900; color: var(–accent-blue); display: block; margin-top: 4px; }
+.dist-badge { font-size: 14px; color: var(–accent-orange); margin-left: 8px; font-weight: normal; vertical-align: middle; }
 .bottom-hud { position: absolute; bottom: 10px; left: 10px; right: 10px; height: 100px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; z-index: 1000; }
 .hud-left-group, .hud-right-group { display: flex; align-items: center; gap: 20px; }
 .hud-group { display: flex; flex-direction: column; align-items: center; min-width: 90px; }
-.hud-label { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 4px; }
-.hud-value { font-size: 45px; font-weight: 800; font-family: var(--font-mono); line-height: 1; text-shadow: 2px 2px 5px rgba(0,0,0,0.3); }
-.limit { color: var(--accent-red); }
+.hud-label { font-size: 11px; color: var(–text-dim); letter-spacing: 1px; margin-bottom: 4px; }
+.hud-value { font-size: 45px; font-weight: 800; font-family: var(–font-mono); line-height: 1; text-shadow: 2px 2px 5px rgba(0,0,0,0.3); }
+.limit { color: var(–accent-red); }
 .hud-sep { width: 1px; height: 50px; background: rgba(255,255,255,0.1); box-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
 .btn-alert { pointer-events: auto; width: 70px; height: 70px; border-radius: 20px; border: none; background: linear-gradient(135deg, #ff4757, #c0392b); font-size: 30px; cursor: pointer; box-shadow: 5px 5px 15px rgba(0,0,0,0.4), inset 2px 2px 5px rgba(255,255,255,0.3); transition: transform 0.1s; touch-action: manipulation; }
 .btn-alert:active { transform: scale(0.95); box-shadow: inset 3px 3px 10px rgba(0,0,0,0.5); }
@@ -127,7 +115,7 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
 .overlay-alert { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(50,0,0,0.9); z-index: 3000; display: flex; justify-content: center; align-items: center; }
 .alert-box { background: #2c0505; padding: 30px; border: 2px solid #ff4757; border-radius: 20px; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
 .alert-box h2 { color: #ff4757; margin-bottom: 10px; font-size: 24px; }
-.incident-pk { font-size: 36px; font-weight: 900; font-family: var(--font-mono); color: white; margin-bottom: 20px; display: block; }
+.incident-pk { font-size: 36px; font-weight: 900; font-family: var(–font-mono); color: white; margin-bottom: 20px; display: block; }
 .alert-actions { display: flex; gap: 10px; justify-content: center; }
 .btn-reduce, .btn-kill { flex: 1; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 3px 3px 10px rgba(0,0,0,0.3); }
 .btn-reduce { background: #34495e; color: white; border-top: 1px solid #666; }
@@ -136,12 +124,12 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
 .settings-box { width: 90%; max-width: 350px; padding: 25px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
 .setting-row { margin-bottom: 20px; }
 select, input[type=number], input[type=text] { width: 100%; padding: 12px; background: rgba(10, 12, 16, 0.8); border: 1px solid #444; border-top: 1px solid #666; color: white; border-radius: 6px; font-size: 16px; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5); }
-.btn-close { width: 100%; padding: 14px; background: var(--accent-blue); border: none; color: black; font-weight: bold; border-radius: 8px; margin-top: 10px; cursor: pointer; font-size: 16px; box-shadow: 3px 3px 15px rgba(0, 210, 255, 0.3), inset 2px 2px 5px rgba(255,255,255,0.3); touch-action: manipulation; }
+.btn-close { width: 100%; padding: 14px; background: var(–accent-blue); border: none; color: black; font-weight: bold; border-radius: 8px; margin-top: 10px; cursor: pointer; font-size: 16px; box-shadow: 3px 3px 15px rgba(0, 210, 255, 0.3), inset 2px 2px 5px rgba(255,255,255,0.3); touch-action: manipulation; }
 .btn-close:active { transform: scale(0.98); }
 .orders-list-container { margin: 15px 0; max-height: 150px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; }
 .order-item { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding: 10px 0; font-size: 14px; color: #f1c40f; align-items: center; }
 .order-del { color: #ff4757; font-weight: bold; cursor: pointer; font-size: 18px; padding: 0 10px; }
-.btn-text { background: none; border: none; color: var(--text-dim); text-decoration: underline; margin-top: 10px; width: 100%; cursor: pointer; font-size: 14px; touch-action: manipulation; }
+.btn-text { background: none; border: none; color: var(–text-dim); text-decoration: underline; margin-top: 10px; width: 100%; cursor: pointer; font-size: 14px; touch-action: manipulation; }
 @keyframes blink { 50% { opacity: 0.5; } }
 .overspeed-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; display: flex; justify-content: center; align-items: center; background: rgba(255, 0, 0, 0.3); animation: blinkRed 0.5s infinite alternate; }
 .overspeed-msg { font-size: 32px; font-weight: 900; color: white; background: #c0392b; padding: 15px 30px; border-radius: 10px; box-shadow: 0 0 20px red; border: 2px solid white; }
@@ -223,9 +211,7 @@ white-space: nowrap;
 
 <div class="track-viewport" id="trackViewport">
     <div class="track-line"></div>
-    <div id="trainCursor" class="train-cursor">
-        <div class="train-shape"></div>
-    </div>
+    <div id="trainCursor" class="train-cursor"></div>
     <div class="pk-calib-container">
         <button class="btn-calib" onclick="window.adjustPk(-25)">-</button>
         <div class="train-pk-label" id="currentPkDisplay">PK ---</div>
@@ -779,12 +765,12 @@ function gameLoop(timestamp) {
 function updateVisuals() {
     let screenH = domViewport.clientHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
-    
-    // Lire la position du centre exact du cercle (train-shape) dans le viewport
-    const shapeEl = document.querySelector('.train-shape');
+
+    // cursorY = position pixel de la ligne bleue (top: 75% du viewport)
+    const cursorEl = document.getElementById('trainCursor');
     const viewportRect = domViewport.getBoundingClientRect();
-    const shapeRect = shapeEl.getBoundingClientRect();
-    const cursorY = (shapeRect.top + shapeRect.height / 2) - viewportRect.top;
+    const cursorRect = cursorEl.getBoundingClientRect();
+    const cursorY = cursorRect.top - viewportRect.top;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
