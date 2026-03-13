@@ -3,6 +3,9 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -10,7 +13,7 @@
 <meta name="theme-color" content="#25282c">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
-<title>Fiche Train</title>
+<title>Fiche Train v9</title>
 <style>
 :root {
     --bg-deep: #25282c;
@@ -770,11 +773,11 @@ function updateVisuals() {
     let screenH = domViewport.clientHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
 
-    // cursorY = position pixel de la ligne bleue par rapport à objectsContainer
+    // cursorY absolu : position du curseur dans la page entière moins le haut de objectsContainer
     const cursorEl = document.getElementById('trainCursor');
     const containerRect = domContainer.getBoundingClientRect();
     const cursorRect = cursorEl.getBoundingClientRect();
-    const cursorY = cursorRect.top - containerRect.top;
+    const cursorY = cursorRect.top - containerRect.top + (cursorRect.height / 2);
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
