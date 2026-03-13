@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -25,12 +26,12 @@
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
-* { box-sizing: border-box; user-select: none; -webkit-touch-callout: none; }
+* { box-sizing: border-box; user-select: none !important; -webkit-user-select: none !important; -webkit-touch-callout: none !important; -webkit-tap-highlight-color: transparent; }
 body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--text-main); font-family: var(--font-tech); overflow: hidden; width: 100vw; height: 100vh; height: 100dvh; }
 .hidden { display: none !important; }
 .app-container { display: flex; flex-direction: column; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 .glass-panel { background: var(--panel-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.4); border-left: 1px solid rgba(255, 255, 255, 0.4); border-bottom: 1px solid rgba(255, 255, 255, 0.1); border-right: 1px solid rgba(255, 255, 255, 0.1); box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.3), inset -5px -5px 15px rgba(0, 0, 0, 0.1), 10px 10px 30px rgba(0, 0, 0, 0.5); }
-.top-bar { position: absolute; top: 0; left: 0; right: 0; height: 60px; z-index: 1000; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; }
+.top-bar { position: absolute; top: 0; left: 0; right: 0; height: calc(60px + env(safe-area-inset-top, 0px)); z-index: 1000; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 15px env(safe-area-inset-top, 0px) 15px; padding-bottom: 8px; padding-top: env(safe-area-inset-top, 0px); }
 .left-part, .right-part { display: flex; align-items: center; gap: 10px; }
 .btn-icon, .btn-add { pointer-events: auto; background: rgba(255,255,255,0.05); border: none; border-top: 1px solid rgba(255,255,255,0.4); border-left: 1px solid rgba(255,255,255,0.4); color: white; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 5px 5px 15px rgba(0,0,0,0.4), inset 1px 1px 2px rgba(255,255,255,0.2); transition: transform 0.1s; touch-action: manipulation; }
 .btn-icon:active, .btn-add:active { transform: scale(0.96); box-shadow: inset 3px 3px 8px rgba(0,0,0,0.4); }
@@ -105,7 +106,7 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
 .type-ORDRE_FIN .obj-card { border-color: #aaa; border-left-style: dashed; background: rgba(40,40,40,0.9); }
 .ltv-zone { position: absolute; left: 55px; width: 10px; background: repeating-linear-gradient(45deg, #f1c40f, #f1c40f 5px, #111 5px, #111 10px); border: 1px solid #f1c40f; z-index: 2; }
 .track-obj.active { transform: translateY(-50%) scale(1.05); z-index: 50; filter: brightness(1.3); }
-.info-floater { position: absolute; top: 70px; right: 20px; z-index: 1000; padding: 15px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 220px; text-align: center; }
+.info-floater { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 20px; z-index: 1000; padding: 15px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 220px; text-align: center; }
 .info-sep { height: 1px; background: rgba(255,255,255,0.1); width: 80%; margin: 0 auto; }
 .info-label { font-size: 11px; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
 .info-val { font-weight: 900; font-size: 18px; color: white; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
@@ -148,43 +149,49 @@ select, input[type=number], input[type=text] { width: 100%; padding: 12px; backg
 .btn-stop { pointer-events: auto; width: 70px; height: 70px; border-radius: 20px; border: none; background: #444; color: white; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 5px 5px 15px rgba(0,0,0,0.4), inset 2px 2px 5px rgba(255,255,255,0.2); transition: all 0.2s; display: flex; justify-content: center; align-items: center; touch-action: manipulation; }
 .btn-stop.active { background: #ff0000; box-shadow: 0 0 15px #ff0000; animation: blink 0.5s infinite alternate; }
 
-/* --- MODE ÉDITION --- */
+/* — MODE ÉDITION — */
 body.edit-mode #objectsContainer { pointer-events: auto; }
 body.edit-mode .track-obj { pointer-events: auto; cursor: pointer; }
 body.edit-mode .track-obj .obj-card { border-style: dashed; opacity: 0.9; }
 body.edit-mode .track-obj:hover .obj-card { filter: brightness(1.4); border-style: solid; }
 .edit-mode-banner {
-    position: absolute;
-    top: 65px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1500;
-    background: rgba(255,165,2,0.9);
-    color: black;
-    padding: 6px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    pointer-events: none;
-    white-space: nowrap;
+position: absolute;
+top: calc(65px + env(safe-area-inset-top, 0px));
+left: 50%;
+transform: translateX(-50%);
+z-index: 1500;
+background: rgba(255,165,2,0.9);
+color: black;
+padding: 6px 18px;
+border-radius: 20px;
+font-size: 13px;
+font-weight: bold;
+letter-spacing: 1px;
+box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+pointer-events: none;
+white-space: nowrap;
 }
+.btn-add-bloc { width: 100%; padding: 14px; background: rgba(0,210,255,0.15); border: 1px dashed var(–accent-blue); color: var(–accent-blue); font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; margin-bottom: 10px; }
+.type-select-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.type-btn { padding: 10px; border-radius: 8px; border: 2px solid #444; background: rgba(255,255,255,0.05); color: white; font-size: 13px; font-weight: bold; cursor: pointer; touch-action: manipulation; text-align: center; }
+.type-btn.selected { border-color: var(–accent-orange); background: rgba(255,165,2,0.2); color: var(–accent-orange); }
+.btn-edit-delete { flex: 1; padding: 14px; background: rgba(255,71,87,0.2); border: 1px solid var(–accent-red); color: var(–accent-red); font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
 
-/* --- MODALE ÉDITION BLOC --- */
+/* — MODALE ÉDITION BLOC — */
 .modal-edit-obj { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 4000; display: flex; justify-content: center; align-items: center; }
 .edit-obj-box { background: #1e2128; border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; padding: 24px; width: 90%; max-width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
-.edit-obj-box h3 { color: var(--accent-orange); margin: 0 0 20px 0; font-size: 16px; letter-spacing: 1px; text-align: center; }
+.edit-obj-box h3 { color: var(–accent-orange); margin: 0 0 20px 0; font-size: 16px; letter-spacing: 1px; text-align: center; }
 .edit-field { margin-bottom: 16px; }
-.edit-field label { display: block; font-size: 11px; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
-.edit-field input { width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid #444; color: white; border-radius: 8px; font-size: 16px; font-family: var(--font-mono); }
+.edit-field label { display: block; font-size: 11px; color: var(–text-dim); letter-spacing: 1px; margin-bottom: 6px; text-transform: uppercase; }
+.edit-field input { width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid #444; color: white; border-radius: 8px; font-size: 16px; font-family: var(–font-mono); }
 .edit-obj-actions { display: flex; gap: 10px; margin-top: 20px; }
-.btn-edit-save { flex: 2; padding: 14px; background: var(--accent-blue); border: none; color: black; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
+.btn-edit-save { flex: 2; padding: 14px; background: var(–accent-blue); border: none; color: black; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
 .btn-edit-cancel { flex: 1; padding: 14px; background: rgba(255,255,255,0.07); border: 1px solid #555; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
 
-/* Indicateur visuel d'appui long */
-.track-obj.long-press-anim .obj-card { transition: box-shadow 0.5s, border-color 0.5s; box-shadow: 0 0 0 3px var(--accent-orange); border-color: var(--accent-orange) !important; }
+/* Indicateur visuel d’appui long */
+.track-obj.long-press-anim .obj-card { transition: box-shadow 0.5s, border-color 0.5s; box-shadow: 0 0 0 3px var(–accent-orange); border-color: var(–accent-orange) !important; }
 </style>
+
 </head>
 <body>
 <div class="app-container">
@@ -192,161 +199,195 @@ body.edit-mode .track-obj:hover .obj-card { filter: brightness(1.4); border-styl
         <div class="overspeed-msg">⚠️ VITESSE EXCESSIVE</div>
     </div>
 
-    <div id="minimizedAlert" class="minimized-alert hidden" onclick="window.restoreIncident()">
-        ⚠️ PK <span id="minimizedPkVal">...</span>
+```
+<div id="minimizedAlert" class="minimized-alert hidden" onclick="window.restoreIncident()">
+    ⚠️ PK <span id="minimizedPkVal">...</span>
+</div>
+
+<div class="glass-panel top-bar">
+    <div class="left-part">
+        <div id="gpsStatus" class="status-pill waiting">📡 GPS...</div>
+        <button class="btn-icon" onclick="window.openModal('config')">⚙️ MENU</button>
     </div>
-
-    <div class="glass-panel top-bar">
-        <div class="left-part">
-            <div id="gpsStatus" class="status-pill waiting">📡 GPS...</div>
-            <button class="btn-icon" onclick="window.openModal('config')">⚙️ MENU</button>
-        </div>
-        <div class="center-part">
-            <span id="clockDisplay" class="clock">--:--</span>
-        </div>
-        <div class="right-part">
-            <button class="btn-edit-mode" id="btnEditMode" onclick="window.toggleEditMode()">✏️ ÉDITER</button>
-            <button class="btn-icon" onclick="window.askPk()">📍 PK</button>
-            <button class="btn-add" onclick="window.openModal('ordre')">➕ LTV</button>
-        </div>
+    <div class="center-part">
+        <span id="clockDisplay" class="clock">--:--</span>
     </div>
-
-    <div id="editModeBanner" class="edit-mode-banner hidden">✏️ MODE ÉDITION — Appui long sur un bloc pour le modifier</div>
-
-    <div class="track-viewport" id="trackViewport">
-        <div class="track-line"></div>
-        <div id="trainCursor" class="train-cursor">
-            <div class="train-shape"></div>
-        </div>
-        <div class="pk-calib-container">
-            <button class="btn-calib" onclick="window.adjustPk(-25)">-</button>
-            <div class="train-pk-label" id="currentPkDisplay">PK ---</div>
-            <button class="btn-calib" onclick="window.adjustPk(25)">+</button>
-        </div>
+    <div class="right-part">
+        <button class="btn-edit-mode" id="btnEditMode" onclick="window.toggleEditMode()">✏️ ÉDITER</button>
+        <button class="btn-icon" onclick="window.askPk()">📍 PK</button>
+        <button class="btn-add" onclick="window.openModal('ordre')">➕ LTV</button>
     </div>
-    <div id="objectsContainer"></div>
+</div>
 
-    <div id="infoPanel" class="glass-panel info-floater">
-        <div class="info-row">
-            <span class="info-label">PROCHAINE GARE</span>
-            <span id="nextStationText" class="info-val station">---</span>
-            <span id="nextStationPk" class="small-pk"></span>
-        </div>
-        <div class="info-sep"></div>
-        <div class="info-row">
-            <span class="info-label">À VENIR</span>
-            <span id="nextEventText" class="info-val event">---</span>
-            <span id="nextEventPk" class="big-pk"></span>
-        </div>
+<div id="editModeBanner" class="edit-mode-banner hidden">✏️ Appui long = modifier &nbsp;|&nbsp; <span onclick="window.openAddBloc()" style="text-decoration:underline;cursor:pointer;pointer-events:auto;">➕ Nouveau bloc</span></div>
+
+<div class="track-viewport" id="trackViewport">
+    <div class="track-line"></div>
+    <div id="trainCursor" class="train-cursor">
+        <div class="train-shape"></div>
     </div>
+    <div class="pk-calib-container">
+        <button class="btn-calib" onclick="window.adjustPk(-25)">-</button>
+        <div class="train-pk-label" id="currentPkDisplay">PK ---</div>
+        <button class="btn-calib" onclick="window.adjustPk(25)">+</button>
+    </div>
+</div>
+<div id="objectsContainer"></div>
 
-    <div class="glass-panel bottom-hud">
-        <div class="hud-left-group">
-            <div class="hud-group limit-group">
-                <span class="hud-label">LIMITE</span>
-                <span class="hud-value limit" id="limitDisplay">---</span>
-            </div>
-        </div>
-        <div class="hud-sep"></div>
-        <div class="hud-right-group">
-            <button id="btnStop" class="btn-stop" onclick="window.toggleStop()">STOP</button>
-            <div class="hud-group speed-group">
-                <span class="hud-label">VITESSE</span>
-                <span class="hud-value speed" id="speedDisplay">---</span>
-            </div>
-            <button class="btn-alert" onclick="window.signalIncident()">⚠️</button>
+<div id="infoPanel" class="glass-panel info-floater">
+    <div class="info-row">
+        <span class="info-label">PROCHAINE GARE</span>
+        <span id="nextStationText" class="info-val station">---</span>
+        <span id="nextStationPk" class="small-pk"></span>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-row">
+        <span class="info-label">À VENIR</span>
+        <span id="nextEventText" class="info-val event">---</span>
+        <span id="nextEventPk" class="big-pk"></span>
+    </div>
+</div>
+
+<div class="glass-panel bottom-hud">
+    <div class="hud-left-group">
+        <div class="hud-group limit-group">
+            <span class="hud-label">LIMITE</span>
+            <span class="hud-value limit" id="limitDisplay">---</span>
         </div>
     </div>
+    <div class="hud-sep"></div>
+    <div class="hud-right-group">
+        <button id="btnStop" class="btn-stop" onclick="window.toggleStop()">STOP</button>
+        <div class="hud-group speed-group">
+            <span class="hud-label">VITESSE</span>
+            <span class="hud-value speed" id="speedDisplay">---</span>
+        </div>
+        <button class="btn-alert" onclick="window.signalIncident()">⚠️</button>
+    </div>
+</div>
 
-    <!-- Modales existantes -->
-    <div id="incidentAlert" class="overlay-alert hidden">
-        <div class="alert-box">
-            <h2>⚠️ INCIDENT</h2>
-            <p class="incident-pk">PK <span id="incidentPkVal">...</span></p>
-            <div class="alert-actions">
-                <button class="btn-reduce" onclick="window.minimizeIncident()">RÉDUIRE (MÉMO)</button>
-                <button class="btn-kill" onclick="window.closeIncident()">CLÔTURER</button>
-            </div>
+<!-- Modales existantes -->
+<div id="incidentAlert" class="overlay-alert hidden">
+    <div class="alert-box">
+        <h2>⚠️ INCIDENT</h2>
+        <p class="incident-pk">PK <span id="incidentPkVal">...</span></p>
+        <div class="alert-actions">
+            <button class="btn-reduce" onclick="window.minimizeIncident()">RÉDUIRE (MÉMO)</button>
+            <button class="btn-kill" onclick="window.closeIncident()">CLÔTURER</button>
         </div>
     </div>
+</div>
 
-    <div id="modalConfig" class="settings-overlay hidden">
-        <div class="glass-panel settings-box">
-            <h3>CONFIGURATION</h3>
-            <div class="setting-row">
-                <label>CHOIX DE LA LIGNE</label>
-                <select id="lineSelect" onchange="window.changeLine()">
-                    <option value="CHAMBERY_MODANE">Chambéry ➔ Modane</option>
-                    <option value="MODANE_CHAMBERY">Modane ➔ Chambéry</option>
-                    <option value="CHAMBERY_AMBERIEU">Chambéry ➔ Ambérieu</option>
-                    <option value="AMBERIEU_CHAMBERY">Ambérieu ➔ Chambéry</option>
-                </select>
-            </div>
-            <div class="setting-row">
-                <label>TRAIN</label>
-                <select id="trainSelect" onchange="window.updateSettings()">
-                    <option value="MA100">MA 100</option>
-                    <option value="ME100">ME 100 / HLP</option>
-                    <option value="MA90">MA 90</option>
-                    <option value="MA80">MA 80</option>
-                </select>
-            </div>
-            <div class="setting-row warning-row">
-                <label>CONTRE-SENS (IPCS)</label>
-                <input type="checkbox" id="csToggle" onchange="window.toggleContreSens()">
-            </div>
-            <button class="btn-close" onclick="window.closeModal('config')">VALIDER</button>
+<div id="modalConfig" class="settings-overlay hidden">
+    <div class="glass-panel settings-box">
+        <h3>CONFIGURATION</h3>
+        <div class="setting-row">
+            <label>CHOIX DE LA LIGNE</label>
+            <select id="lineSelect" onchange="window.changeLine()">
+                <option value="CHAMBERY_MODANE">Chambéry ➔ Modane</option>
+                <option value="MODANE_CHAMBERY">Modane ➔ Chambéry</option>
+                <option value="CHAMBERY_AMBERIEU">Chambéry ➔ Ambérieu</option>
+                <option value="AMBERIEU_CHAMBERY">Ambérieu ➔ Chambéry</option>
+            </select>
+        </div>
+        <div class="setting-row">
+            <label>TRAIN</label>
+            <select id="trainSelect" onchange="window.updateSettings()">
+                <option value="MA100">MA 100</option>
+                <option value="ME100">ME 100 / HLP</option>
+                <option value="MA90">MA 90</option>
+                <option value="MA80">MA 80</option>
+            </select>
+        </div>
+        <div class="setting-row warning-row">
+            <label>CONTRE-SENS (IPCS)</label>
+            <input type="checkbox" id="csToggle" onchange="window.toggleContreSens()">
+        </div>
+        <button class="btn-close" onclick="window.closeModal('config')">VALIDER</button>
+    </div>
+</div>
+
+<div id="modalOrder" class="settings-overlay hidden">
+    <div class="glass-panel settings-box">
+        <h3>GESTION LTV</h3>
+        <div class="input-group">
+            <input type="number" id="orderPkStart" placeholder="Début PK" step="0.1">
+            <input type="number" id="orderPkEnd" placeholder="Fin PK" step="0.1">
+            <input type="number" id="orderSpeed" placeholder="Vitesse" style="width:80px;">
+        </div>
+        <button class="btn-close" onclick="window.addOrder()">AJOUTER</button>
+        <div class="orders-list-container">
+            <label>LTV EN COURS :</label>
+            <div id="ordersList" class="orders-list"></div>
+        </div>
+        <button class="btn-text" onclick="window.closeModal('order')">Fermer</button>
+    </div>
+</div>
+
+<div id="modalPk" class="settings-overlay hidden">
+    <div class="glass-panel settings-box" style="text-align: center;">
+        <h3 style="color: var(--accent-blue); margin-bottom: 15px;">ALLER AU PK</h3>
+        <div class="input-group" style="margin-bottom: 20px;">
+            <input type="number" id="inputPkVal" placeholder="Ex: 145.5" step="0.1" style="font-size: 24px; text-align: center; font-weight: bold; color: var(--accent-blue);">
+        </div>
+        <div class="alert-actions">
+            <button class="btn-reduce" onclick="window.closeModal('pk')">ANNULER</button>
+            <button class="btn-kill" style="background: var(--accent-blue); border-top: 1px solid #fff;" onclick="window.submitPk()">VALIDER</button>
         </div>
     </div>
+</div>
 
-    <div id="modalOrder" class="settings-overlay hidden">
-        <div class="glass-panel settings-box">
-            <h3>GESTION LTV</h3>
-            <div class="input-group">
-                <input type="number" id="orderPkStart" placeholder="Début PK" step="0.1">
-                <input type="number" id="orderPkEnd" placeholder="Fin PK" step="0.1">
-                <input type="number" id="orderSpeed" placeholder="Vitesse" style="width:80px;">
-            </div>
-            <button class="btn-close" onclick="window.addOrder()">AJOUTER</button>
-            <div class="orders-list-container">
-                <label>LTV EN COURS :</label>
-                <div id="ordersList" class="orders-list"></div>
-            </div>
-            <button class="btn-text" onclick="window.closeModal('order')">Fermer</button>
+<!-- MODALE ÉDITION BLOC -->
+<div id="modalEditObj" class="modal-edit-obj hidden">
+    <div class="edit-obj-box">
+        <h3>✏️ MODIFIER LE BLOC</h3>
+        <div class="edit-field">
+            <label>Nom / Libellé</label>
+            <input type="text" id="editObjNom" placeholder="Ex: Nf 137.3">
+        </div>
+        <div class="edit-field">
+            <label>PK (en km, ex: 137.300)</label>
+            <input type="number" id="editObjPk" placeholder="137.300" step="0.001">
+        </div>
+        <div class="edit-obj-actions">
+            <button class="btn-edit-delete" onclick="window.deleteEditObj()">🗑 SUPPR</button>
+            <button class="btn-edit-cancel" onclick="window.closeEditObj()">ANNULER</button>
+            <button class="btn-edit-save" onclick="window.saveEditObj()">✓ OK</button>
         </div>
     </div>
+</div>
 
-    <div id="modalPk" class="settings-overlay hidden">
-        <div class="glass-panel settings-box" style="text-align: center;">
-            <h3 style="color: var(--accent-blue); margin-bottom: 15px;">ALLER AU PK</h3>
-            <div class="input-group" style="margin-bottom: 20px;">
-                <input type="number" id="inputPkVal" placeholder="Ex: 145.5" step="0.1" style="font-size: 24px; text-align: center; font-weight: bold; color: var(--accent-blue);">
-            </div>
-            <div class="alert-actions">
-                <button class="btn-reduce" onclick="window.closeModal('pk')">ANNULER</button>
-                <button class="btn-kill" style="background: var(--accent-blue); border-top: 1px solid #fff;" onclick="window.submitPk()">VALIDER</button>
+<!-- MODALE AJOUT BLOC -->
+<div id="modalAddBloc" class="modal-edit-obj hidden">
+    <div class="edit-obj-box">
+        <h3>➕ NOUVEAU BLOC</h3>
+        <div class="edit-field">
+            <label>Type de bloc</label>
+            <div class="type-select-grid" id="typeSelectGrid">
+                <div class="type-btn selected" data-type="SIGNAL" onclick="window.selectType(this)">🟡 SIGNAL</div>
+                <div class="type-btn" data-type="GARE" onclick="window.selectType(this)">🏠 GARE</div>
+                <div class="type-btn" data-type="TUNNEL" onclick="window.selectType(this)">🕳 TUNNEL</div>
+                <div class="type-btn" data-type="VITESSE" onclick="window.selectType(this)">⚡ VITESSE</div>
+                <div class="type-btn" data-type="PN" onclick="window.selectType(this)">🚧 PN</div>
+                <div class="type-btn" data-type="INFO" onclick="window.selectType(this)">ℹ️ INFO</div>
             </div>
         </div>
-    </div>
-
-    <!-- MODALE ÉDITION BLOC -->
-    <div id="modalEditObj" class="modal-edit-obj hidden">
-        <div class="edit-obj-box">
-            <h3>✏️ MODIFIER LE BLOC</h3>
-            <div class="edit-field">
-                <label>Nom / Libellé</label>
-                <input type="text" id="editObjNom" placeholder="Ex: Nf 137.3">
-            </div>
-            <div class="edit-field">
-                <label>PK (en km, ex: 137.300)</label>
-                <input type="number" id="editObjPk" placeholder="137.300" step="0.001">
-            </div>
-            <div class="edit-obj-actions">
-                <button class="btn-edit-cancel" onclick="window.closeEditObj()">ANNULER</button>
-                <button class="btn-edit-save" onclick="window.saveEditObj()">✓ ENREGISTRER</button>
-            </div>
+        <div class="edit-field">
+            <label>Nom / Libellé</label>
+            <input type="text" id="addBlocNom" placeholder="Ex: Nf 142.5">
+        </div>
+        <div class="edit-field">
+            <label>PK (en km) — laissez vide = PK actuel</label>
+            <input type="number" id="addBlocPk" placeholder="142.500" step="0.001">
+        </div>
+        <div class="edit-obj-actions">
+            <button class="btn-edit-cancel" onclick="window.closeAddBloc()">ANNULER</button>
+            <button class="btn-edit-save" onclick="window.saveAddBloc()">✓ CRÉER</button>
         </div>
     </div>
+</div>
+```
+
 </div>
 
 <script>
@@ -394,6 +435,10 @@ window.onload = function() {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
+    // Bloquer sélection et menu contextuel
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('selectstart', e => e.preventDefault());
+    document.addEventListener('dragstart', e => e.preventDefault());
 };
 
 // ============================================================
@@ -417,6 +462,58 @@ window.openEditObj = function(item) {
 window.closeEditObj = function() {
     document.getElementById('modalEditObj').classList.add('hidden');
     editingItem = null;
+};
+
+window.deleteEditObj = function() {
+    if (!editingItem) return;
+    let idx = activeData.indexOf(editingItem);
+    if (idx !== -1) {
+        if (editingItem.el) editingItem.el.remove();
+        activeData.splice(idx, 1);
+    }
+    window.closeEditObj();
+    updateVisuals();
+};
+
+// --- AJOUT NOUVEAU BLOC ---
+let selectedNewType = 'SIGNAL';
+
+window.openAddBloc = function() {
+    document.getElementById('addBlocNom').value = '';
+    document.getElementById('addBlocPk').value = '';
+    selectedNewType = 'SIGNAL';
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector('[data-type="SIGNAL"]').classList.add('selected');
+    document.getElementById('modalAddBloc').classList.remove('hidden');
+    setTimeout(() => document.getElementById('addBlocNom').focus(), 100);
+};
+
+window.closeAddBloc = function() {
+    document.getElementById('modalAddBloc').classList.add('hidden');
+};
+
+window.selectType = function(btn) {
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedNewType = btn.dataset.type;
+};
+
+window.saveAddBloc = function() {
+    let nom = document.getElementById('addBlocNom').value.trim();
+    let pkVal = document.getElementById('addBlocPk').value.replace(',', '.');
+    let pk = pkVal ? Math.round(parseFloat(pkVal) * 1000) : Math.round(currentPk);
+    if (!nom) nom = selectedNewType;
+    let newItem = { pk, type: selectedNewType, nom, _custom: true };
+    activeData.push(newItem);
+    activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
+    let el = document.createElement('div');
+    el.className = `track-obj type-${selectedNewType}`;
+    el.innerHTML = `<div class="obj-card"><div class="obj-name">${nom}</div><div class="obj-pk">${(pk/1000).toFixed(3)}</div></div>`;
+    newItem.el = el;
+    domContainer.appendChild(el);
+    setupLongPress(el, newItem);
+    window.closeAddBloc();
+    updateVisuals();
 };
 
 window.saveEditObj = function() {
@@ -1274,5 +1371,6 @@ const dataChamberyAmberieuImpair = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" }
 ];
 </script>
+
 </body>
 </html>
