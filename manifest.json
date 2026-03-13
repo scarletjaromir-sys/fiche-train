@@ -1,0 +1,18 @@
+{
+  "name": "Fiche Train",
+  "short_name": "Train",
+  "description": "Fiche de conduite train fret",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#25282c",
+  "theme_color": "#25282c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
