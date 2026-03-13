@@ -70,7 +70,7 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
     position: absolute;
     left: 0;
     right: 0;
-    top: 75%;
+    top: 0;
     height: 1px;
     background: linear-gradient(90deg, transparent 0%, var(--accent-blue) 20%, var(--accent-blue) 80%, transparent 100%);
     box-shadow: 0 0 8px var(--accent-blue);
@@ -523,10 +523,9 @@ window.saveEditObj = function() {
     if (!newNom && isNaN(newPkVal)) { window.closeEditObj(); return; }
     if (newNom) editingItem.nom = newNom;
     if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
+    let saved = editingItem; // sauvegarder avant closeEditObj qui met editingItem = null
     window.closeEditObj();
-    // Rafraîchir l'affichage sans réinitialiser toute la liste
-    refreshItemDisplay(editingItem);
-    // Retrier et recréer si le PK a changé
+    refreshItemDisplay(saved);
     activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
     updateVisuals();
 };
