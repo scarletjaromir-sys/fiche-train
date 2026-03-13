@@ -779,9 +779,12 @@ function gameLoop(timestamp) {
 function updateVisuals() {
     let screenH = domViewport.clientHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
-    const isPortrait = window.innerHeight > window.innerWidth;
-    const ratio = isPortrait ? 0.805 : 0.829;
-    const cursorY = screenH * ratio;
+    
+    // Lire la position réelle du curseur depuis le DOM pour être parfaitement synchronisé avec le CSS
+    const cursorEl = document.getElementById('trainCursor');
+    const viewportRect = domViewport.getBoundingClientRect();
+    const cursorRect = cursorEl.getBoundingClientRect();
+    const cursorY = cursorRect.top - viewportRect.top;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
