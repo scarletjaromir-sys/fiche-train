@@ -770,11 +770,11 @@ function updateVisuals() {
     let screenH = domViewport.clientHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
 
-    // cursorY = position pixel de la ligne bleue (top: 75% du viewport)
+    // cursorY = position pixel de la ligne bleue par rapport à objectsContainer
     const cursorEl = document.getElementById('trainCursor');
-    const viewportRect = domViewport.getBoundingClientRect();
+    const containerRect = domContainer.getBoundingClientRect();
     const cursorRect = cursorEl.getBoundingClientRect();
-    const cursorY = cursorRect.top - viewportRect.top;
+    const cursorY = cursorRect.top - containerRect.top;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
