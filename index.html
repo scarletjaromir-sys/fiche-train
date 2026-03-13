@@ -93,6 +93,9 @@ transform: translateY(-50%);
 .type-VITESSE .obj-card { border-color: var(–accent-red); } .type-VITESSE .obj-name { color: var(–accent-red); font-size: 20px; }
 .type-SIGNAL .obj-card { border-color: var(–accent-orange); }
 .type-SIGNAL_CS .obj-card { border-color: #e056fd; }
+.type-PN .obj-card { border-color: #a29bfe; } .type-PN .obj-name { color: #a29bfe; }
+.type-TUNNEL .obj-card { border-color: #636e72; background: rgba(30,30,35,0.95); }
+.type-INFO .obj-card { border-color: #74b9ff; } .type-INFO .obj-name { color: #74b9ff; }
 .type-ORDRE .obj-card { border-color: #f1c40f; background: rgba(60,50,10,0.95); }
 .type-ORDRE_FIN .obj-card { border-color: #aaa; border-left-style: dashed; background: rgba(40,40,40,0.9); }
 .ltv-zone { position: absolute; left: 55px; width: 10px; background: repeating-linear-gradient(45deg, #f1c40f, #f1c40f 5px, #111 5px, #111 10px); border: 1px solid #f1c40f; z-index: 2; }
@@ -773,11 +776,8 @@ function updateVisuals() {
     let screenH = domViewport.clientHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
 
-    // cursorY absolu : position du curseur dans la page entière moins le haut de objectsContainer
-    const cursorEl = document.getElementById('trainCursor');
-    const containerRect = domContainer.getBoundingClientRect();
-    const cursorRect = cursorEl.getBoundingClientRect();
-    const cursorY = cursorRect.top - containerRect.top + (cursorRect.height / 2);
+    // cursorY = 75% de la hauteur de objectsContainer, même référentiel que top:75% du train-cursor
+    const cursorY = domContainer.clientHeight * 0.75;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
