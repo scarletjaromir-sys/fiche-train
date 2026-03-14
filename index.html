@@ -30,7 +30,7 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; user-select: none !important; -webkit-user-select: none !important; -webkit-touch-callout: none !important; -webkit-tap-highlight-color: transparent; }
-body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--text-main); font-family: var(--font-tech); overflow: hidden; width: 100vw; height: 100vh; height: 100dvh; }
+html { background-color: #25282c; } body { margin: 0; padding: 0; background-color: #25282c !important; color: var(--text-main); font-family: var(--font-tech); overflow: hidden; width: 100vw; height: 100vh; height: 100dvh; }
 .hidden { display: none !important; }
 .app-container { display: flex; flex-direction: column; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 .glass-panel { background: var(--panel-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.4); border-left: 1px solid rgba(255, 255, 255, 0.4); border-bottom: 1px solid rgba(255, 255, 255, 0.1); border-right: 1px solid rgba(255, 255, 255, 0.1); box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.3), inset -5px -5px 15px rgba(0, 0, 0, 0.1), 10px 10px 30px rgba(0, 0, 0, 0.5); }
@@ -50,13 +50,13 @@ body { margin: 0; padding: 0; background-color: var(--bg-deep); color: var(--tex
     flex: 1;
     position: relative;
     overflow: hidden;
-    background: radial-gradient(circle at 50% 80%, #353b45 0%, #25282c 80%);
+    background: radial-gradient(circle at 50% 80%, #353b45 0%, #25282c 80%) !important; background-color: #25282c !important;
     cursor: grab;
     z-index: 10;
     touch-action: none;
 }
 .track-viewport:active { cursor: grabbing; }
-.track-line { position: absolute; top: 0; bottom: 0; left: 60px; width: 3px; background: rgba(255,255,255,0.15); z-index: 1; }
+.track-line { position: absolute; top: 0; bottom: 0; left: 60px; width: 3px; background: rgba(255,255,255,0.4); z-index: 1; }
 .train-cursor {
     position: absolute;
     top: 75%;
@@ -84,8 +84,8 @@ transform: translateY(-50%);
 .btn-calib:active { background: var(–accent-blue); color: black; transform: scale(0.95); box-shadow: inset 3px 3px 10px rgba(0,0,0,0.4); }
 .train-pk-label { font-family: var(–font-mono); font-size: 28px; font-weight: 900; color: var(–accent-blue); text-shadow: 0 0 10px rgba(0,210,255,0.5); background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(0,210,255,0.3); box-shadow: 5px 5px 15px rgba(0,0,0,0.5); }
 #objectsContainer { position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none; }
-.track-obj { position: absolute; left: 100px; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; transition: transform 0.1s; z-index: 20; }
-.track-obj::before { content: ‘’; position: absolute; left: -40px; width: 36px; height: 1px; background: rgba(255,255,255,0.3); top: 50%; transform: translateY(-50%); }
+.track-obj { position: absolute; left: 100px; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; transition: transform 0.1s; z-index: 20; isolation: isolate; }
+.track-connector { position: absolute; left: -40px; width: 36px; height: 2px; background: rgba(255,255,255,0.5); top: 50%; transform: translateY(-50%); pointer-events: none; }
 .obj-card { background: rgba(45, 50, 60, 0.95); padding: 8px 14px; border-radius: 4px; border-left: 5px solid #555; min-width: 200px; box-shadow: 5px 5px 15px rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.1); }
 .obj-name { font-weight: 700; font-size: 17px; color: #eee; }
 .obj-pk { font-family: var(–font-mono); font-size: 13px; color: var(–text-dim); margin-top: 2px; }
@@ -451,12 +451,17 @@ window.onload = function() {
     domEventPk = document.getElementById('nextEventPk');
     domOverspeed = document.getElementById('overspeedOverlay');
 
-    initView();
     initGPS();
     updateClock();
     setInterval(updateClock, 60000);
-    lastFrameTime = performance.now();
-    requestAnimationFrame(gameLoop);
+    // Double RAF: garantit que le DOM est mesuré après le premier paint sur iOS Safari
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            initView();
+            lastFrameTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+    });
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => { regs.forEach(r => r.unregister()); });
@@ -537,7 +542,7 @@ window.saveAddBloc = function() {
     activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
     let el = document.createElement('div');
     el.className = `track-obj type-${selectedNewType}`;
-    el.innerHTML = `<div class="obj-card"><div class="obj-name">${nom}</div><div class="obj-pk">${(pk/1000).toFixed(3)}</div></div>`;
+    el.innerHTML = `<div class="track-connector"></div><div class="obj-card"><div class="obj-name">${nom}</div><div class="obj-pk">${(pk/1000).toFixed(3)}</div></div>`;
     newItem.el = el;
     domContainer.appendChild(el);
     setupLongPress(el, newItem);
@@ -885,9 +890,10 @@ function gameLoop(timestamp) {
 }
 
 function updateVisuals() {
-    let screenH = domViewport.clientHeight;
-    if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
-    const cursorY = domContainer.clientHeight * 0.75;
+    let screenH = domViewport.clientHeight || window.innerHeight;
+    if (!screenH || screenH < 100) screenH = window.innerHeight;
+    const containerH = domContainer.clientHeight || screenH;
+    const cursorY = containerH * 0.75;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
@@ -1025,7 +1031,7 @@ function initView() {
         let cssType = item.type;
         if (item.type === "TUNNEL_INT") cssType = "TUNNEL";
         el.className = `track-obj type-${cssType}`;
-        let html = `<div class="obj-card"><div class="obj-name">${item.nom || item.type}</div><div class="obj-pk">${(item.pk / 1000).toFixed(3)}</div></div>`;
+        let html = `<div class="track-connector"></div><div class="obj-card"><div class="obj-name">${item.nom || item.type}</div><div class="obj-pk">${(item.pk / 1000).toFixed(3)}</div></div>`;
         el.innerHTML = html;
         item.el = el;
         domContainer.appendChild(el);
