@@ -121,6 +121,9 @@ z-index: 15;
 .info-label { font-size: 11px; color: var(–accent-blue); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; }
 .info-val { font-weight: 900; font-size: 18px; color: white; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
 .info-val.station { color: var(–accent-green); font-size: 22px; }
+.info-val.event { color: white; font-size: 18px; }
+.info-row .big-pk { color: var(–accent-blue); }
+.info-row .dist-badge { color: var(–accent-orange); }
 .small-pk { font-family: var(–font-mono); font-size: 12px; color: var(–text-dim); }
 .big-pk { font-family: var(–font-mono); font-size: 22px; font-weight: 900; color: var(–accent-blue); display: block; margin-top: 4px; }
 .dist-badge { font-size: 14px; color: var(–accent-orange); margin-left: 8px; font-weight: normal; vertical-align: middle; }
@@ -233,8 +236,8 @@ white-space: nowrap;
         <div class="train-pk-label" id="currentPkDisplay">PK ---</div>
         <button class="btn-calib" onclick="window.adjustPk(25)">+</button>
     </div>
+    <div id="objectsContainer"></div>
 </div>
-<div id="objectsContainer"></div>
 
 <div id="infoPanel" class="glass-panel info-floater">
     <div class="info-row">
@@ -892,8 +895,7 @@ function gameLoop(timestamp) {
 function updateVisuals() {
     let screenH = domViewport.clientHeight || window.innerHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight;
-    const containerH = domContainer.clientHeight || screenH;
-    const cursorY = containerH * 0.75;
+    const cursorY = screenH * 0.75;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
