@@ -419,30 +419,40 @@ let editingItem = null;
 let domContainer, domViewport, domLimit, domStationName, domStationPk, domEventName, domEventPk, domOverspeed;
 
 // ============================================================
-// PERSISTANCE localStorage — blocs ajoutés/supprimés par ligne
+// PERSISTANCE localStorage — blocs ajoutés/supprimés/modifiés par ligne
+// Structure: { added: [...], deleted: [...], modified: [...] }
+// - added   : blocs créés via l'éditeur (_custom:true)
+// - deleted : blocs natifs supprimés (identifiés par _origKey)
+// - modified: blocs natifs modifiés (pk ou nom changé)
+// LTV non sauvegardées (temporaires par nature)
 // ============================================================
 function lsKey(line) { return 'fiche_train_edits_' + line; }
 
 function saveEditsToLS() {
-    // Sauvegarder les blocs custom ajoutés (_custom: true)
-    let added = activeData.filter(i => i._custom === true).map(i => ({
-        pk: i.pk, type: i.type, nom: i.nom
-    }));
-    // Sauvegarder les blocs supprimés (identifiés par pk+type+nom d'origine)
-    let store = { added, deleted: deletedBlocs[currentLine] || [] };
-    try { localStorage.setItem(lsKey(currentLine), JSON.stringify(store)); } catch(e) {}
+    let added    = activeData.filter(i => i._custom === true)
+                             .map(i => ({ pk: i.pk, type: i.type, nom: i.nom }));
+    let deleted  = deletedBlocs[currentLine] || [];
+    let modified = modifiedBlocs[currentLine] || [];
+    let store = { added, deleted, modified };
+    try { localStorage.setItem(lsKey(currentLine), JSON.stringify(store)); } catch(e) { console.warn('LS save error', e); }
 }
 
 function loadEditsFromLS(line) {
     try {
         let raw = localStorage.getItem(lsKey(line));
-        if (!raw) return { added: [], deleted: [] };
-        return JSON.parse(raw);
-    } catch(e) { return { added: [], deleted: [] }; }
+        if (!raw) return { added: [], deleted: [], modified: [] };
+        let parsed = JSON.parse(raw);
+        parsed.modified = parsed.modified || [];
+        return parsed;
+    } catch(e) { return { added: [], deleted: [], modified: [] }; }
 }
 
-// Registre des suppressions par ligne
-let deletedBlocs = {};
+// Registre des suppressions et modifications par ligne
+let deletedBlocs  = {};
+let modifiedBlocs = {};
+
+// Clé unique d'identification d'un bloc natif (avant toute modif)
+function origKey(item) { return item._origKey || (item.pk + '|' + item.type + '|' + item.nom); }
 
 window.onload = function() {
     domContainer = document.getElementById('objectsContainer');
@@ -503,10 +513,14 @@ window.deleteEditObj = function() {
     let idx = activeData.indexOf(editingItem);
     if (idx !== -1) {
         if (editingItem.el) editingItem.el.remove();
-        // Si c'est un bloc natif (pas custom), on mémorise la suppression
         if (!editingItem._custom) {
+            // Bloc natif supprimé : mémoriser sa clé d'origine
             if (!deletedBlocs[currentLine]) deletedBlocs[currentLine] = [];
-            deletedBlocs[currentLine].push({ pk: editingItem.pk, type: editingItem.type, nom: editingItem.nom });
+            deletedBlocs[currentLine].push(origKey(editingItem));
+            // Retirer de modifiedBlocs si existait
+            if (modifiedBlocs[currentLine]) {
+                modifiedBlocs[currentLine] = modifiedBlocs[currentLine].filter(m => m.origKey !== origKey(editingItem));
+            }
         }
         activeData.splice(idx, 1);
     }
@@ -559,8 +573,24 @@ window.saveEditObj = function() {
     let newNom = document.getElementById('editObjNom').value.trim();
     let newPkVal = parseFloat(document.getElementById('editObjPk').value.replace(',', '.'));
     if (!newNom && isNaN(newPkVal)) { window.closeEditObj(); return; }
-    if (newNom) editingItem.nom = newNom;
-    if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
+
+    if (!editingItem._custom) {
+        // Bloc natif modifié : sauvegarder la clé d'origine AVANT modif
+        let key = origKey(editingItem);
+        if (!modifiedBlocs[currentLine]) modifiedBlocs[currentLine] = [];
+        // Retirer l'ancienne entrée si elle existait déjà
+        modifiedBlocs[currentLine] = modifiedBlocs[currentLine].filter(m => m.origKey !== key);
+        // Appliquer les modifs
+        if (newNom) editingItem.nom = newNom;
+        if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
+        // Stocker la nouvelle version
+        modifiedBlocs[currentLine].push({ origKey: key, pk: editingItem.pk, type: editingItem.type, nom: editingItem.nom });
+    } else {
+        // Bloc custom : modifier directement
+        if (newNom) editingItem.nom = newNom;
+        if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
+    }
+
     let saved = editingItem;
     window.closeEditObj();
     refreshItemDisplay(saved);
@@ -980,11 +1010,29 @@ function initView() {
     });
     // Charger les modifications sauvegardées pour cette ligne
     let edits = loadEditsFromLS(currentLine);
-    // Appliquer les suppressions
-    let deletedKeys = (edits.deleted || []).map(d => d.pk + '|' + d.type + '|' + d.nom);
-    if (!deletedBlocs[currentLine]) deletedBlocs[currentLine] = edits.deleted || [];
-    filtered = filtered.filter(item => !deletedKeys.includes(item.pk + '|' + item.type + '|' + item.nom));
-    // Ajouter les blocs custom sauvegardés
+
+    // Initialiser les registres en mémoire depuis le LS
+    if (!deletedBlocs[currentLine])  deletedBlocs[currentLine]  = edits.deleted  || [];
+    if (!modifiedBlocs[currentLine]) modifiedBlocs[currentLine] = edits.modified || [];
+
+    // 1. Appliquer les modifications de blocs natifs (pk ou nom changé)
+    let modMap = {};
+    (modifiedBlocs[currentLine] || []).forEach(m => { modMap[m.origKey] = m; });
+    filtered = filtered.map(item => {
+        let key = item.pk + '|' + item.type + '|' + item.nom;
+        if (modMap[key]) {
+            let m = modMap[key];
+            return { ...item, pk: m.pk, nom: m.nom, _origKey: key };
+        }
+        item._origKey = key;  // mémoriser la clé d'origine sur tous les blocs natifs
+        return item;
+    });
+
+    // 2. Appliquer les suppressions (après les modifs car les clés sont d'origine)
+    let deletedKeys = new Set(deletedBlocs[currentLine] || []);
+    filtered = filtered.filter(item => !deletedKeys.has(item._origKey));
+
+    // 3. Ajouter les blocs custom sauvegardés
     let savedCustom = (edits.added || []).map(i => ({ ...i, _custom: true }));
 
     let ltvPoints = [];
