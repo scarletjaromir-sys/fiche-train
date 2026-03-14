@@ -376,7 +376,8 @@ white-space: nowrap;
             <div class="type-select-grid" id="typeSelectGrid">
                 <div class="type-btn selected" data-type="SIGNAL" onclick="window.selectType(this)">🟡 SIGNAL</div>
                 <div class="type-btn" data-type="GARE" onclick="window.selectType(this)">🏠 GARE</div>
-                <div class="type-btn" data-type="TUNNEL" onclick="window.selectType(this)">🕳 TUNNEL</div>
+                <div class="type-btn" data-type="TUNNEL_DEB" onclick="window.selectType(this)">⬛ TUNNEL début</div>
+                <div class="type-btn" data-type="TUNNEL_FIN" onclick="window.selectType(this)">⬜ TUNNEL fin</div>
                 <div class="type-btn" data-type="VITESSE" onclick="window.selectType(this)">⚡ VITESSE</div>
                 <div class="type-btn" data-type="PN" onclick="window.selectType(this)">🚧 PN</div>
                 <div class="type-btn" data-type="INFO" onclick="window.selectType(this)">ℹ️ INFO</div>
@@ -534,7 +535,12 @@ window.deleteEditObj = function() {
     }
     saveEditsToLS();
     window.closeEditObj();
-    updateVisuals();
+    // Si suppression d'un tunnel, recalculer toutes les liaisons
+    if (editingItem && (editingItem.type === 'TUNNEL_DEB' || editingItem.type === 'TUNNEL_FIN')) {
+        initView();
+    } else {
+        updateVisuals();
+    }
 };
 
 let selectedNewType = 'SIGNAL';
@@ -564,16 +570,21 @@ window.saveAddBloc = function() {
     if (!nom) nom = selectedNewType;
     let newItem = { pk, type: selectedNewType, nom, _custom: true };
     activeData.push(newItem);
-    activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
-    let el = document.createElement('div');
-    el.className = `track-obj type-${selectedNewType}`;
-    el.innerHTML = `<div class="track-connector"></div><div class="obj-card"><div class="obj-name">${nom}</div><div class="obj-pk">${(pk/1000).toFixed(3)}</div></div>`;
-    newItem.el = el;
-    domContainer.appendChild(el);
-    setupLongPress(el, newItem);
     saveEditsToLS();
     window.closeAddBloc();
-    updateVisuals();
+    // Pour les tunnels : refaire initView pour recalculer toutes les liaisons DEB↔FIN
+    if (selectedNewType === 'TUNNEL_DEB' || selectedNewType === 'TUNNEL_FIN') {
+        initView();
+    } else {
+        activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
+        let el = document.createElement('div');
+        el.className = `track-obj type-${selectedNewType}`;
+        el.innerHTML = `<div class="track-connector"></div><div class="obj-card"><div class="obj-name">${nom}</div><div class="obj-pk">${(pk/1000).toFixed(3)}</div></div>`;
+        newItem.el = el;
+        domContainer.appendChild(el);
+        setupLongPress(el, newItem);
+        updateVisuals();
+    }
 };
 
 window.saveEditObj = function() {
