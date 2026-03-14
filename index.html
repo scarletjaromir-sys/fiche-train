@@ -688,10 +688,10 @@ function calculateComplexSpeed() {
             // Voie 2 NORMALE sens pair
             if (pk >= 206900) {
                 // Modane → St Michel Valloire (220360) → Viaduc Longefan (206900)
-                // ME120=60(1), ME100=60(1), MA100=50(1), MA90=50(1), MA80=40
-                if (currentTrainType === 'ME100') return 60;
-                if (currentTrainType === 'MA100') return 50;
-                if (currentTrainType === 'MA90') return 50;
+                // ME100=70, MA100=70, MA90=70, MA80=40
+                if (currentTrainType === 'ME100') return 70;
+                if (currentTrainType === 'MA100') return 70;
+                if (currentTrainType === 'MA90') return 70;
                 if (currentTrainType === 'MA80') return 40;
             } else if (pk >= 184800) {
                 // Sortie Viaduc → Pancarte km 184,8
@@ -722,10 +722,10 @@ function calculateComplexSpeed() {
         } else {
             // Voie 1 CONTRE-SENS (V1 sens pair = rouler à contre-sens)
             if (pk >= 206900) {
-                // Modane → St Jean (même que V2) : ME100=60, MA100=50, MA90=50, MA80=40
-                if (currentTrainType === 'ME100') return 60;
-                if (currentTrainType === 'MA100') return 50;
-                if (currentTrainType === 'MA90') return 50;
+                // Modane → St Jean CS : ME100=70, MA100=70, MA90=70, MA80=40
+                if (currentTrainType === 'ME100') return 70;
+                if (currentTrainType === 'MA100') return 70;
+                if (currentTrainType === 'MA90') return 70;
                 if (currentTrainType === 'MA80') return 40;
             } else if (pk >= 198080) {
                 // Viaduc → St Avre (V1 sens pair CS) : ME100=90, MA100=90, MA90=80, MA80=60
@@ -1117,21 +1117,53 @@ function initView() {
             }
         }
     }
-    // Zones tunnel : créées et liées aux blocs TUNNEL_DEB
-    // (recalculées dynamiquement dans updateVisuals depuis activeData)
-    let allTunnelBlocs = activeData.filter(i => i && (i.type === 'TUNNEL_DEB' || i.type === 'TUNNEL_FIN')).sort((a,b) => a.pk - b.pk);
-    let pendingDeb = null;
-    allTunnelBlocs.forEach(t => {
-        if (t.type === 'TUNNEL_DEB') {
+    // Zones tunnel : liaisons DEB↔FIN par nom d'abord, puis par proximité PK
+    let allDEB = activeData.filter(i => i && i.type === 'TUNNEL_DEB');
+    let allFIN = activeData.filter(i => i && i.type === 'TUNNEL_FIN');
+    allDEB.forEach(d => { d.elZoneFin = null; d.elZone = null; });
+    allFIN.forEach(f => { f.elZoneDeb = null; });
+
+    // Passe 1 : lier par nom exact (DEB et FIN avec le même nom)
+    allDEB.forEach(deb => {
+        let sameName = allFIN.filter(f => !f.elZoneDeb && f.nom === deb.nom);
+        if (sameName.length > 0) {
+            // Prendre le FIN le plus proche en distance absolue de PK
+            let fin = sameName.reduce((a,b) => Math.abs(a.pk-deb.pk) < Math.abs(b.pk-deb.pk) ? a : b);
             let z = document.createElement('div');
             z.className = 'tunnel-zone';
             domContainer.appendChild(z);
-            t.elZone = z;  // lier la zone au bloc DEB
-            pendingDeb = t;
-        } else if (t.type === 'TUNNEL_FIN' && pendingDeb) {
-            pendingDeb.elZoneFin = t;  // référence croisée DEB→FIN
-            t.elZoneDeb = pendingDeb;  // référence croisée FIN→DEB
-            pendingDeb = null;
+            deb.elZone = z;
+            deb.elZoneFin = fin;
+            fin.elZoneDeb = deb;
+        }
+    });
+
+    // Passe 2 : lier les DEB restants par proximité PK dans le sens de marche
+    allDEB.filter(d => !d.elZoneFin).forEach(deb => {
+        let candidates;
+        if (direction === 'IMPAIR') {
+            candidates = allFIN.filter(f => !f.elZoneDeb && f.pk > deb.pk);
+            if (candidates.length > 0) {
+                let fin = candidates.reduce((a,b) => a.pk < b.pk ? a : b);
+                let z = document.createElement('div');
+                z.className = 'tunnel-zone';
+                domContainer.appendChild(z);
+                deb.elZone = z;
+                deb.elZoneFin = fin;
+                fin.elZoneDeb = deb;
+            }
+        } else {
+            // En PAIR : chercher FIN dans les deux directions, prendre le plus proche
+            candidates = allFIN.filter(f => !f.elZoneDeb);
+            if (candidates.length > 0) {
+                let fin = candidates.reduce((a,b) => Math.abs(a.pk-deb.pk) < Math.abs(b.pk-deb.pk) ? a : b);
+                let z = document.createElement('div');
+                z.className = 'tunnel-zone';
+                domContainer.appendChild(z);
+                deb.elZone = z;
+                deb.elZoneFin = fin;
+                fin.elZoneDeb = deb;
+            }
         }
     });
     activeData.forEach(item => {
