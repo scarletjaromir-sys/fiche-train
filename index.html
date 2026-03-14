@@ -779,22 +779,30 @@ function calculateComplexSpeed() {
     }
 
     // ============================================================
-    // LIGNES TARENTAISE (SPA_ALV / ALV_PBM / PBM_ALV / ALV_SPA)
-    // Vitesse de base : MA100=70 tout le long
-    // ME100/HLP: 80 sur SPA↔ALV et ALV→PBM jusqu'à AIG, 70 sinon
-    // Transitions gérées par pancartes VITESSE dans les données
+    // ============================================================
+    // LIGNES TARENTAISE
+    // MA100 = 70 tout le long sur toutes les sections
+    // ME100/HLP :
+    //   SPA↔ALV          → 80 tout le long
+    //   ALV→PBM          → 80 de ALV jusqu'à AIG (PK 49,473), puis 70 de AIG à PBM
+    //   PBM→ALV          → 70 de PBM jusqu'à MOS (PK 51,659), puis 80 de MOS à ALV
     // ============================================================
     if (['SPA_ALV','ALV_SPA'].includes(currentLine)) {
         if (currentTrainType === 'ME100') return 80;
         return 70;
     }
-    if (currentLine === 'ALV_PBM' || currentLine === 'PBM_ALV') {
-        // scanSpeedSigns lit la pancarte VITESSE posée dans les données
-        // (transition 80→70 à AIG pour ALV_PBM, 70→80 à MOS pour PBM_ALV)
-        let v = scanSpeedSigns();
-        if (v && v !== '---') return v;
-        // Par défaut: ME100=80, MA100=70
-        if (currentTrainType === 'ME100') return 80;
+    if (currentLine === 'ALV_PBM') {
+        if (currentTrainType === 'ME100') {
+            // PK locaux : AIG = 49473, on est en PK locaux (23600 à 57229)
+            return (pk <= 49473) ? 80 : 70;
+        }
+        return 70;
+    }
+    if (currentLine === 'PBM_ALV') {
+        if (currentTrainType === 'ME100') {
+            // PK locaux : MOS = 51659, on vient de PBM (57229) vers ALV (23600)
+            return (pk >= 51659) ? 70 : 80;
+        }
         return 70;
     }
 
@@ -802,16 +810,16 @@ function calculateComplexSpeed() {
 }
 
 function scanSpeedSigns() {
-    // Trouve la dernière pancarte VITESSE dépassée
+    // Trouve la dernière pancarte VITESSE dépassée selon la direction
     let validLimits = activeData.filter(item => item.type === 'VITESSE' && item.limits);
     let bestLimit = null;
     if (direction === 'IMPAIR') {
-        // On roule PK croissant : chercher la dernière pancarte VITESSE dont pk <= currentPk
-        let passed = validLimits.filter(i => i.pk <= currentPk);
+        // PK croissant : la dernière pancarte dépassée = plus grand PK <= currentPk
+        let passed = validLimits.filter(i => i.pk <= currentPk).sort((a,b) => a.pk - b.pk);
         if (passed.length > 0) bestLimit = passed[passed.length - 1];
     } else {
-        // On roule PK décroissant : chercher la dernière pancarte VITESSE dont pk >= currentPk
-        let passed = validLimits.filter(i => i.pk >= currentPk);
+        // PK décroissant : la dernière pancarte dépassée = plus petit PK >= currentPk
+        let passed = validLimits.filter(i => i.pk >= currentPk).sort((a,b) => a.pk - b.pk);
         if (passed.length > 0) bestLimit = passed[0];
     }
     if (bestLimit && bestLimit.limits) {
@@ -1082,16 +1090,27 @@ function initView() {
     customOrders.forEach(o => {
         let z = document.createElement('div'); z.className = 'ltv-zone'; o.elZone = z; domContainer.appendChild(z);
     });
-    // Zones hachurées rouges ≤80 — désactivées sur RT5077 (VMax 80 partout, signalé terrain)
+    // Zones hachurées rouges = zones où la vitesse est inférieure à la vitesse max de la ligne
+    // Désactivées sur RT5077 (pas de réduction, tout est signalé terrain)
     const isRT5077 = (['SPA_ALV','ALV_PBM','PBM_ALV','ALV_SPA'].includes(currentLine));
     if (!isRT5077) {
-        let vitesseBlocs = filtered.filter(i => i && i.type === 'VITESSE').sort((a,b) => a.pk - b.pk);
+        // Vitesse max de la ligne = valeur de la première pancarte (celle au départ)
+        let vitesseBlocs = filtered.filter(i => i && i.type === 'VITESSE')
+                                   .sort((a,b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
+        // Trouver la vitesse max de la ligne (première pancarte dans le sens de marche)
+        let lineMaxSpeed = 100;
+        if (vitesseBlocs.length > 0) {
+            let first = vitesseBlocs[0];
+            lineMaxSpeed = first.limits ? (first.limits[currentTrainType] || first.limits['MA100']) : parseInt(first.nom);
+        }
         for (let i = 0; i < vitesseBlocs.length - 1; i++) {
             let v = vitesseBlocs[i];
             let vitesseVal = v.limits ? (v.limits[currentTrainType] || v.limits['MA100']) : parseInt(v.nom);
-            if (parseInt(vitesseVal) <= 80) {
+            // Hachures seulement si cette zone est sous la vitesse max de la ligne
+            if (parseInt(vitesseVal) < parseInt(lineMaxSpeed)) {
                 let z = document.createElement('div');
                 z.className = 'speed-zone';
+                // pkStart = pk de cette pancarte, pkEnd = pk de la pancarte suivante dans le sens de marche
                 z._pkStart = v.pk;
                 z._pkEnd = vitesseBlocs[i+1].pk;
                 domContainer.appendChild(z);
@@ -1185,6 +1204,7 @@ function onGpsError(err) {
 // ============================================================
 const dataImpairBase = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" },
+    { pk: 137600, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 138000, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 137300, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
     { pk: 137000, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
@@ -1419,6 +1439,7 @@ const dataPairBase = [
 // ============================================================
 const dataChamberyAmberieuPair = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" },
+    { pk: 137600, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 135630, type: "PN", nom: "PN 24a", track: "NORMAL" },
     { pk: 135500, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 134300, type: "PN", nom: "PN 24" },
@@ -1661,19 +1682,19 @@ const dataChamberyAmberieuImpair = [
 // ============================================================
 const dataSPA_ALV = [
     { pk: 0,      type: "GARE",   nom: "ST PIERRE D'ALBIGNY (Bif)" },
-    { pk: 2800,   type: "SIGNAL", nom: "Nf 601" },
+    { pk: 2800,   type: "SIGNAL", nom: "Nf 401" },
     { pk: 3500,   type: "PN",     nom: "PN 1" },
-    { pk: 6200,   type: "PN",     nom: "PN 2" },
+    { pk: 6150,   type: "PN",     nom: "PN 2" },
     { pk: 6300,   type: "PN",     nom: "PN 3" },
     { pk: 7400,   type: "PN",     nom: "PN 4" },
     { pk: 7900,   type: "SIGNAL", nom: "A (panneau circulaire)" },
     { pk: 8900,   type: "SIGNAL", nom: "Nf 441" },
     { pk: 9200,   type: "PN",     nom: "PN 5" },
-    { pk: 9600,   type: "GARE",   nom: "GRÉSY-SUR-ISÈRE" },
-    { pk: 9870,   type: "SIGNAL", nom: "Nf 455 / Nf 453" },
+    { pk: 9550,   type: "GARE",   nom: "GRÉSY-SUR-ISÈRE" },
+    { pk: 9680,   type: "SIGNAL", nom: "Nf 455 / Nf 453" },
     { pk: 9800,   type: "PN",     nom: "PN 6" },
     { pk: 12800,  type: "PN",     nom: "PN 7" },
-    { pk: 14000,  type: "PN",     nom: "PN 8" },
+    { pk: 13950,  type: "PN",     nom: "PN 8" },
     { pk: 14100,  type: "SIGNAL", nom: "A (panneau circulaire)" },
     { pk: 15200,  type: "SIGNAL", nom: "Nf 471" },
     { pk: 15800,  type: "GARE",   nom: "FRONTENEX" },
@@ -1681,13 +1702,13 @@ const dataSPA_ALV = [
     { pk: 16000,  type: "PN",     nom: "PN 10" },
     { pk: 16500,  type: "PN",     nom: "PN 12" },
     { pk: 18200,  type: "PN",     nom: "PN 15" },
-    { pk: 18500,  type: "INFO",   nom: "S" },
+    { pk: 19200,  type: "INFO",   nom: "S" },
     { pk: 18800,  type: "PN",     nom: "PN 16 (non gardé)" },
     { pk: 20600,  type: "PN",     nom: "PN 18" },
     { pk: 21100,  type: "SIGNAL", nom: "A (panneau circulaire en vert)" },
     { pk: 21700,  type: "PN",     nom: "PN 20" },
     { pk: 22300,  type: "SIGNAL", nom: "Nf 13" },
-    { pk: 22400,  type: "PN",     nom: "PN 21" },
+    { pk: 22450,  type: "PN",     nom: "PN 21" },
     { pk: 22800,  type: "SIGNAL", nom: "Nf 15" },
     { pk: 23000,  type: "PN",     nom: "PN 23" },
     { pk: 23625,  type: "GARE",   nom: "ALBERTVILLE" },
@@ -1712,7 +1733,7 @@ const dataALV_SPA = [
     { pk: 16600,  type: "SIGNAL", nom: "Nf 486" },
     { pk: 16000,  type: "PN",     nom: "PN 10" },
     { pk: 15800,  type: "GARE",   nom: "FRONTENEX" },
-    { pk: 15500,  type: "SIGNAL", nom: "Nf 672 / Nf 674" },
+    { pk: 15500,  type: "SIGNAL", nom: "Nf 472 / Nf 474" },
     { pk: 14000,  type: "PN",     nom: "PN 8" },
     { pk: 12800,  type: "PN",     nom: "PN 7" },
     { pk: 11000,  type: "SIGNAL", nom: "A (panneau circulaire)" },
@@ -1722,13 +1743,14 @@ const dataALV_SPA = [
     { pk: 9300,   type: "SIGNAL", nom: "Nf 442 / Nf 444" },
     { pk: 9200,   type: "PN",     nom: "PN 5" },
     { pk: 7400,   type: "PN",     nom: "PN 4" },
-    { pk: 6830,   type: "PN",     nom: "PN 3" },
+    { pk: 6350,   type: "PN",     nom: "PN 3" },
     { pk: 6200,   type: "PN",     nom: "PN 2" },
     { pk: 3500,   type: "PN",     nom: "PN 1" },
     { pk: 3100,   type: "SIGNAL", nom: "A (panneau circulaire)" },
     { pk: 3000,   type: "INFO",   nom: "TIV pointe 60" },
     { pk: 2100,   type: "SIGNAL", nom: "Nf 178" },
     { pk: 163100, type: "SIGNAL", nom: "Nf 164 / Nf 166" },   // PK absolu ligne principale
+    { pk: 18800,  type: "PN",     nom: "PN 16 non gardé" },
     { pk: 162300, type: "GARE",   nom: "ST PIERRE D'ALBIGNY (Bif)" },
 ];
 
@@ -1741,105 +1763,86 @@ const dataALV_SPA = [
 const dataALV_PBM = [
     { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
     // Signaux entrée/sortie ALV côté PBM (image2: 23,7 bas de la feuille)
-    { pk: 23700,  type: "SIGNAL", nom: "Nf Cv 36 // Nf Cv 38 — ID 1 feu" },
+    { pk: 23750,  type: "SIGNAL", nom: "Nf Cv 36 // Nf Cv 38 — ID 1 feu" },
     { pk: 24100,  type: "INFO",   nom: "GSM-R Canal 2" },
     { pk: 23900,  type: "PN",     nom: "PN 23" },
-    { pk: 24400,  type: "SIGNAL", nom: "Nf 22" },
     { pk: 24500,  type: "PN",     nom: "PN 24" },
     { pk: 24800,  type: "PN",     nom: "PN 25" },
-    { pk: 25100,  type: "PN",     nom: "PN 26 — Repère changement pantos" },
-    { pk: 25100,  type: "INFO",   nom: "⚡ Changement pantos !!!" },
-    { pk: 25400,  type: "INFO",   nom: "⬆️ Levez pantos !!! Pancarte Z repère" },
+    { pk: 25050,  type: "PN",     nom: "PN 26" },
+    { pk: 25200,  type: "INFO",   nom: "⚡ Baissez pantos !!!" },
+    { pk: 25400,  type: "INFO",   nom: "⬆️ Levez pantos !!!" },
     { pk: 25600,  type: "PN",     nom: "PN 27" },
-    { pk: 26300,  type: "SIGNAL", nom: "Nf 18" },
     { pk: 26400,  type: "PN",     nom: "PN 29" },
     { pk: 26500,  type: "PN",     nom: "PN 30" },
-    { pk: 26800,  type: "SIGNAL", nom: "Nf 9" },
-    { pk: 26900,  type: "PN",     nom: "PN 31" },
-    { pk: 27300,  type: "INFO",   nom: "TIV POINTE 90" },
-    { pk: 27400,  type: "PN",     nom: "PN 32" },
-    { pk: 27900,  type: "SIGNAL", nom: "Panneau circulaire" },
-    { pk: 28000,  type: "PN",     nom: "PN 33 ou 34" },
+    { pk: 26950,  type: "PN",     nom: "PN 31" },
+    { pk: 27450,  type: "PN",     nom: "PN 32" },
+    { pk: 27900,  type: "PN",     nom: "PN 33" },
     { pk: 29600,  type: "PN",     nom: "PN 35" },
     { pk: 30400,  type: "PN",     nom: "PN 36" },
-    { pk: 30500,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 30500,  type: "SIGNAL", nom: "A Panneau circulaire" },
     { pk: 30900,  type: "PN",     nom: "PN 37" },
-    { pk: 31800,  type: "SIGNAL", nom: "Nf 511" },
     { pk: 31900,  type: "PN",     nom: "PN 38" },
     // === LA BATHIE (LHI) PK 32 ===
     { pk: 32000,  type: "SIGNAL", nom: "V.ev Nf 523 // Nf 525" },
-    { pk: 32000,  type: "GARE",   nom: "LA BATHIE (LHI)" },
+    { pk: 32200,  type: "GARE",   nom: "LA BATHIE (LHI)" },
     // Galerie d'Arbine ~PK 34,5
-    { pk: 34500,  type: "TUNNEL_DEB", nom: "⬛ Galerie d'Arbine (30m)" },
-    { pk: 34530,  type: "TUNNEL_FIN", nom: "Sortie Galerie d'Arbine" },
-    { pk: 34800,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 34800,  type: "SIGNAL", nom: "A Panneau circulaire" },
     { pk: 34900,  type: "PN",     nom: "PN 39" },
     { pk: 33400,  type: "PN",     nom: "PN 40" },
-    { pk: 33100,  type: "SIGNAL", nom: "Nf 526" },
-    { pk: 32900,  type: "PN",     nom: "PN 39" },
-    { pk: 34900,  type: "PN",     nom: "PN 41" },
-    { pk: 35800,  type: "SIGNAL", nom: "Nf 531" },
+    { pk: 32850,  type: "SIGNAL", nom: "Nf 525 / Nf 523" },
+    { pk: 33000,  type: "PN",     nom: "PN 39" },
+    { pk: 34930,  type: "PN",     nom: "PN 41" },
     // === CEVINS (CEI) PK 36,8 ===
-    { pk: 36900,  type: "SIGNAL", nom: "V.ev Nf 545 // Nf 543" },
-    { pk: 36800,  type: "GARE",   nom: "CEVINS (CEI)" },
-    { pk: 37000,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de Cevins" },
+    { pk: 36850,  type: "SIGNAL", nom: "V.ev Nf 545 // Nf 543" },
+    { pk: 36700,  type: "GARE",   nom: "CEVINS (CEI)" },
     { pk: 37150,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Cevins" },
-    { pk: 37200,  type: "PN",     nom: "PN 42" },
-    { pk: 37300,  type: "SIGNAL", nom: "Nf 546" },
-    { pk: 38800,  type: "SIGNAL", nom: "Panneau circulaire" },
-    { pk: 39600,  type: "PN",     nom: "PN 45" },
+    { pk: 37280,  type: "PN",     nom: "PN 42" },
+    { pk: 39550,  type: "PN",     nom: "PN 45" },
     { pk: 39700,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Côtes (313m)" },
     { pk: 40010,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Côtes" },
     { pk: 40200,  type: "PN",     nom: "PN 46" },
     // === NOTRE-DAME-DE-BRIANÇON (NAB) PK 43,6 ===
     { pk: 43700,  type: "SIGNAL", nom: "V.ev Nf 565 // Nf 563" },
-    { pk: 43600,  type: "GARE",   nom: "NOTRE-DAME-DE-BRIANÇON (NAB)" },
+    { pk: 43550,  type: "GARE",   nom: "NOTRE-DAME-DE-BRIANÇON (NAB)" },
     { pk: 42600,  type: "SIGNAL", nom: "Nf 551" },
-    { pk: 41700,  type: "SIGNAL", nom: "Panneau circulaire" },
-    { pk: 43800,  type: "PN",     nom: "PN 48" },
-    { pk: 44100,  type: "SIGNAL", nom: "Nf 566" },
-    { pk: 44300,  type: "TUNNEL_DEB", nom: "⬛ Souterrain du Champs du Comte (532m) ⚠️ mauvaise aération" },
+    { pk: 43700,  type: "PN",     nom: "PN 48" },
     { pk: 44832,  type: "TUNNEL_FIN", nom: "Sortie Champs du Comte" },
-    { pk: 45400,  type: "SIGNAL", nom: "Panneau circulaire" },
     { pk: 45900,  type: "PN",     nom: "PN 51" },
     // === PETIT-CŒUR / LA LÈCHÈRE (P.Cœur) PK 46 ===
-    { pk: 46000,  type: "GARE",   nom: "PETIT-CŒUR / LA LÈCHÈRE" },
-    { pk: 46000,  type: "INFO",   nom: "Ep Bozel" },
+    { pk: 46050,  type: "GARE",   nom: "PETIT-CŒUR / LA LÈCHÈRE" },
+    { pk: 46200,  type: "INFO",   nom: "Ep Bozel" },
     { pk: 47600,  type: "PN",     nom: "PN 52" },
     // === AIGUEBLANCHE (AIG) PK 49 ===
     { pk: 48200,  type: "INFO",   nom: "⚡ COUPEZ COURANT !!!" },
-    { pk: 49000,  type: "SIGNAL", nom: "V.ev Nf 595 // Nf 593" },
-    { pk: 49000,  type: "GARE",   nom: "AIGUEBLANCHE (AIG)" },
+    { pk: 49650,  type: "SIGNAL", nom: "V.ev Nf 595 // Nf 593" },
+    { pk: 49500,  type: "GARE",   nom: "AIGUEBLANCHE (AIG)" },
     // Changement vitesse: ME100/HLP passe de 80 à 70 ici
-    { pk: 49000,  type: "VITESSE", nom: "70", limits: { ME100: 70, MA100: 70, MA90: 70, MA80: 70 } },
-    { pk: 49600,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération" },
+    { pk: 49800,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération" },
     // === MOÛTIERS-SALINS (MOS) PK 51,6 ===
-    { pk: 51100,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Esserts" },
-    { pk: 51200,  type: "SIGNAL", nom: "Nf 611" },
-    { pk: 51200,  type: "INFO",   nom: "Dans tunnel — Nf 611" },
-    { pk: 51200,  type: "INFO",   nom: "Fin de quai" },
-    { pk: 51400,  type: "SIGNAL", nom: "A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653" },
+    { pk: 51200,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Esserts" },
+    { pk: 51000,  type: "SIGNAL", nom: "Nf 611" },
+    { pk: 51750,  type: "SIGNAL", nom: "A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653" },
     { pk: 51600,  type: "GARE",   nom: "MOÛTIERS-SALINS BRIDES (MOS)" },
-    { pk: 52000,  type: "PN",     nom: "PN 54" },
+    { pk: 51900,  type: "PN",     nom: "PN 54" },
     { pk: 52200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 1 (197m)" },
     { pk: 52400,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 1" },
-    { pk: 52400,  type: "INFO",   nom: "Fin tunnel" },
     { pk: 52500,  type: "SIGNAL", nom: "GA 669" },
-    { pk: 52800,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Boucle (1400m)" },
-    { pk: 54200,  type: "TUNNEL_FIN", nom: "Sortie Boucle" },
-    { pk: 54100,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 2 (240m)" },
-    { pk: 54340,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 2" },
-    { pk: 54500,  type: "SIGNAL", nom: "Panneau circulaire" },
-    { pk: 54500,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Saucette (710m)" },
-    { pk: 55200,  type: "TUNNEL_FIN", nom: "Sortie Saucette" },
+    { pk: 52700,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Boucle (1400m)" },
+    { pk: 54300,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 2 (240m)" },
+    { pk: 54540,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 2" },
+    { pk: 54700,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Saucette (710m)" },
+    { pk: 55400,  type: "TUNNEL_FIN", nom: "Sortie Saucette" },
     { pk: 55900,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de PBM (165m)" },
     { pk: 56065,  type: "TUNNEL_FIN", nom: "Sortie Souterrain PBM" },
     { pk: 56800,  type: "SIGNAL", nom: "Nf 711" },
     // === POMBLIÈRE-ST-MARCEL (PBM) PK 57,2 ===
-    { pk: 57200,  type: "PN",     nom: "PN 57" },
+    { pk: 57000,  type: "PN",     nom: "PN 57" },
     { pk: 57500,  type: "SIGNAL", nom: "V.ev Nf 725 // Nf 723" },
-    { pk: 57229,  type: "GARE",   nom: "POMBLIÈRE-ST-MARCEL (PBM)" },
-    { pk: 57229,  type: "INFO",   nom: "GSM-R Canal 2" },
+    { pk: 57229,  type: "GARE",   nom: "POMBLIÈRE-ST-MARCEL" },
+    { pk: 47800,  type: "SIGNAL", nom: "A panneau circulaire", _custom: true },
+    { pk: 48800,  type: "SIGNAL", nom: "Nf 581", _custom: true },
+    { pk: 54100,  type: "TUNNEL_FIN", nom: "Souterrain de la boucle", _custom: true },
+    { pk: 55700,  type: "SIGNAL", nom: "A panneau circulaire", _custom: true },
 ];
 
 // ============================================================
@@ -1852,83 +1855,61 @@ const dataALV_PBM = [
 const dataPBM_ALV = [
     // === POMBLIÈRE-ST-MARCEL (PBM) PK 57,2 ===
     { pk: 57229,  type: "GARE",   nom: "POMBLIÈRE-ST-MARCEL (PBM)" },
-    { pk: 57229,  type: "INFO",   nom: "GSM-R Canal 2" },
+    { pk: 56800,  type: "INFO",   nom: "GSM-R Canal 2" },
     { pk: 57100,  type: "SIGNAL", nom: "Nf 712 // V.ev Nf 714" },
     { pk: 57000,  type: "PN",     nom: "PN 57" },
-    { pk: 56200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de PBM (165m)" },
-    { pk: 56035,  type: "TUNNEL_FIN", nom: "Sortie Souterrain PBM" },
-    { pk: 55200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Saucette (710m)" },
-    { pk: 54490,  type: "TUNNEL_FIN", nom: "Sortie Saucette" },
-    { pk: 54500,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 2 (240m)" },
-    { pk: 54260,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 2" },
-    { pk: 53900,  type: "SIGNAL", nom: "Panneau circulaire" },
-    { pk: 53800,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Boucle (1400m)" },
-    { pk: 52400,  type: "TUNNEL_FIN", nom: "Sortie Boucle" },
-    { pk: 52400,  type: "SIGNAL", nom: "Nf 666" },
-    { pk: 52400,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 1 (197m)" },
-    { pk: 52200,  type: "TUNNEL_FIN", nom: "Fin Tunnel / Sortie Cordeliers 1" },
+    { pk: 52600,  type: "SIGNAL", nom: "Nf 666" },
     // === MOÛTIERS-SALINS (MOS) PK 51,6 ===
-    { pk: 52000,  type: "SIGNAL", nom: "E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620" },
-    { pk: 51600,  type: "INFO",   nom: "Fin de quai / Entrée gare" },
+    { pk: 51400,  type: "SIGNAL", nom: "E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620" },
     { pk: 51600,  type: "GARE",   nom: "MOÛTIERS-SALINS BRIDES (MOS)" },
-    { pk: 51600,  type: "PN",     nom: "PN 54" },
+    { pk: 51750,  type: "PN",     nom: "PN 54" },
     // Changement vitesse ME100/HLP: 70 → 80 à partir de MOS direction ALV
-    { pk: 51600,  type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 70, MA90: 70, MA80: 70 } },
-    { pk: 51200,  type: "SIGNAL", nom: "Nf 596" },
-    { pk: 51200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération" },
-    { pk: 49700,  type: "TUNNEL_FIN", nom: "Fin Tunnel Esserts" },
+    { pk: 49900,  type: "SIGNAL", nom: "Nf 596" },
     // === AIGUEBLANCHE (AIG) PK 49 ===
-    { pk: 49500,  type: "INFO",   nom: "Fin de quai AIG" },
-    { pk: 49000,  type: "GARE",   nom: "AIGUEBLANCHE (AIG)" },
+    { pk: 49400,  type: "GARE",   nom: "AIGUEBLANCHE (AIG)" },
     { pk: 49000,  type: "SIGNAL", nom: "Nf 582 // V.ev Nf 584" },
     { pk: 48400,  type: "INFO",   nom: "⚡ COUPEZ COURANT !!!" },
     { pk: 47800,  type: "SIGNAL", nom: "Panneau circulaire" },
     { pk: 47600,  type: "PN",     nom: "PN 52" },
-    { pk: 46000,  type: "INFO",   nom: "Ep Bozel" },
+    { pk: 46250,  type: "INFO",   nom: "Ep Bozel" },
     { pk: 45900,  type: "PN",     nom: "PN 51" },
     // === PETIT-CŒUR / LA LÈCHÈRE (P.Cœur) PK 46 ===
-    { pk: 46000,  type: "GARE",   nom: "PETIT-CŒUR / LA LÈCHÈRE" },
+    { pk: 46100,  type: "GARE",   nom: "PETIT-CŒUR / LA LÈCHÈRE" },
     // Souterrain Champs du Comte
-    { pk: 45400,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 45400,  type: "SIGNAL", nom: "A Panneau circulaire" },
     { pk: 44300,  type: "TUNNEL_DEB", nom: "⬛ Souterrain du Champs du Comte (532m) ⚠️ mauvaise aération" },
-    { pk: 43768,  type: "TUNNEL_FIN", nom: "Sortie Champs du Comte" },
     // === NOTRE-DAME-DE-BRIANÇON (NAB) PK 43,6 ===
     { pk: 43300,  type: "SIGNAL", nom: "Nf 552 // V.ev Nf 554" },
     { pk: 43600,  type: "GARE",   nom: "NOTRE-DAME-DE-BRIANÇON (NAB)" },
     { pk: 43800,  type: "PN",     nom: "PN 48" },
-    { pk: 44100,  type: "SIGNAL", nom: "Nf 566" },
+    { pk: 43850,  type: "SIGNAL", nom: "Nf 566" },
     { pk: 41700,  type: "SIGNAL", nom: "Panneau circulaire" },
     { pk: 40200,  type: "PN",     nom: "PN 46" },
-    { pk: 40100,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Côtes (313m)" },
-    { pk: 39787,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Côtes" },
     { pk: 39600,  type: "PN",     nom: "PN 45" },
-    { pk: 38800,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 38800,  type: "SIGNAL", nom: "A Panneau circulaire" },
     { pk: 37300,  type: "SIGNAL", nom: "Nf 546" },
     { pk: 37200,  type: "PN",     nom: "PN 42" },
     { pk: 37000,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de Cevins" },
-    { pk: 36850,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Cevins" },
     // === CEVINS (CEI) PK 36,8 ===
     { pk: 36300,  type: "SIGNAL", nom: "Nf 532 // V.ev Nf 534" },
-    { pk: 36800,  type: "GARE",   nom: "CEVINS (CEI)" },
+    { pk: 36750,  type: "GARE",   nom: "CEVINS (CEI)" },
     { pk: 35800,  type: "SIGNAL", nom: "Nf 531" },
     { pk: 34900,  type: "PN",     nom: "PN 41" },
-    { pk: 34500,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 34500,  type: "SIGNAL", nom: "A Panneau circulaire" },
     // Galerie d'Arbine
     { pk: 34500,  type: "TUNNEL_DEB", nom: "⬛ Galerie d'Arbine (30m)" },
-    { pk: 34470,  type: "TUNNEL_FIN", nom: "Sortie Galerie d'Arbine" },
     { pk: 33400,  type: "PN",     nom: "PN 40" },
     { pk: 33100,  type: "SIGNAL", nom: "Nf 526" },
     { pk: 32900,  type: "PN",     nom: "PN 39" },
     // === LA BATHIE (LHI) PK 32 ===
-    { pk: 32000,  type: "SIGNAL", nom: "V.ev Nf 512 // Nf 514" },
+    { pk: 32050,  type: "SIGNAL", nom: "V.ev Nf 512 // Nf 514" },
     { pk: 32000,  type: "GARE",   nom: "LA BATHIE (LHI)" },
     { pk: 31900,  type: "PN",     nom: "PN 38" },
     { pk: 31800,  type: "SIGNAL", nom: "Nf 511" },
     { pk: 30900,  type: "PN",     nom: "PN 37" },
-    { pk: 30500,  type: "SIGNAL", nom: "Panneau circulaire" },
     { pk: 30400,  type: "PN",     nom: "PN 36" },
     { pk: 29600,  type: "PN",     nom: "PN 35" },
-    { pk: 28000,  type: "PN",     nom: "PN 33 ou 34" },
+    { pk: 28000,  type: "PN",     nom: "PN 33" },
     { pk: 27400,  type: "PN",     nom: "PN 32" },
     { pk: 27300,  type: "INFO",   nom: "TIV POINTE 90" },
     { pk: 26900,  type: "PN",     nom: "PN 31" },
@@ -1938,16 +1919,33 @@ const dataPBM_ALV = [
     { pk: 25800,  type: "INFO",   nom: "⬇️ Baissez pantos !!! Pancarte Z repère" },
     { pk: 25600,  type: "PN",     nom: "PN 27" },
     { pk: 26300,  type: "SIGNAL", nom: "Nf 18" },
-    { pk: 25100,  type: "PN",     nom: "PN 26 — Repère changement pantos" },
-    { pk: 25400,  type: "INFO",   nom: "⚡ Changement pantos !!!" },
+    { pk: 25100,  type: "PN",     nom: "PN 26" },
     { pk: 24800,  type: "PN",     nom: "PN 25" },
     { pk: 24600,  type: "SIGNAL", nom: "Nf 11" },
     { pk: 24500,  type: "PN",     nom: "PN 24" },
     { pk: 24300,  type: "INFO",   nom: "GSM-R Canal 1" },
     { pk: 24400,  type: "SIGNAL", nom: "Nf 22" },
     { pk: 23900,  type: "PN",     nom: "PN 23" },
-    { pk: 23700,  type: "SIGNAL", nom: "Nf Cv 36 // Nf Cv 38 — ID 1 feu" },
-    { pk: 23600,  type: "INFO",   nom: "Attention fin Voie 3 Nf Cv 67" },
+    { pk: 23400,  type: "INFO",   nom: "Attention fin Voie 3 Nf Cv 67" },
+    { pk: 56200,  type: "TUNNEL_FIN", nom: "Souterrain de PBM" },
+    { pk: 56000,  type: "TUNNEL_DEB", nom: "Souterrain de PBM" },
+    { pk: 55200,  type: "TUNNEL_FIN", nom: "Souterrain de la Saucette" },
+    { pk: 54500,  type: "TUNNEL_DEB", nom: "Souterrain de la Saucette" },
+    { pk: 54350,  type: "TUNNEL_FIN", nom: "Souterrain des Cordeliers 2" },
+    { pk: 54110,  type: "TUNNEL_DEB", nom: "Souterrain des Cordeliers 2" },
+    { pk: 53800,  type: "TUNNEL_FIN", nom: "Souterrain de la Boucle" },
+    { pk: 52450,  type: "TUNNEL_DEB", nom: "Souterrain de la Boucle" },
+    { pk: 52300,  type: "TUNNEL_FIN", nom: "Souterrain des Cordeliers 1" },
+    { pk: 52100,  type: "TUNNEL_DEB", nom: "Souterrain des Cordeliers 1" },
+    { pk: 51200,  type: "TUNNEL_FIN", nom: "Souterrain des Esserts" },
+    { pk: 49700,  type: "TUNNEL_DEB", nom: "Souterrain des Esserts" },
+    { pk: 44500,  type: "TUNNEL_FIN", nom: "Souterrain du champs du Comte" },
+    { pk: 44000,  type: "TUNNEL_DEB", nom: "Souterrain du champ du Comte" },
+    { pk: 40050,  type: "TUNNEL_FIN", nom: "Souterrain des côtes" },
+    { pk: 39800,  type: "TUNNEL_DEB", nom: "Souterrain des côtes" },
+    { pk: 37100,  type: "TUNNEL_FIN", nom: "Souterrain de Cevin" },
+    { pk: 36900,  type: "TUNNEL_DEB", nom: "Souterrain de Cevin" },
+    { pk: 27850,  type: "SIGNAL",     nom: "A panneau circulaire" },
     // === ALBERTVILLE PK 23,6 ===
     { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
 ];
