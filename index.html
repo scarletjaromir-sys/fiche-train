@@ -313,6 +313,9 @@ white-space: nowrap;
         </div>
         <button class="btn-close" onclick="window.closeModal('config')">VALIDER</button>
         <button class="btn-text" onclick="window.exportHTML()" style="margin-top:8px; color:#ffa502; font-weight:bold;">📥 EXPORTER index.html (avec corrections)</button>
+        <button class="btn-text" onclick="window.backupLS()" style="margin-top:4px; color:#2ed573;">💾 SAUVEGARDER corrections (JSON)</button>
+        <label style="display:block; margin-top:4px; color:#2ed573; font-size:13px; cursor:pointer; text-decoration:underline;" for="importLS">📂 RESTAURER corrections (JSON)</label>
+        <input type="file" id="importLS" accept=".json" style="display:none" onchange="window.restoreLS(this)">
     </div>
 </div>
 
@@ -514,11 +517,15 @@ window.deleteEditObj = function() {
     let idx = activeData.indexOf(editingItem);
     if (idx !== -1) {
         if (editingItem.el) editingItem.el.remove();
+        // Supprimer la zone hachurée liée si c'est un tunnel
+        if (editingItem.elZone) editingItem.elZone.remove();
+        if (editingItem.elZoneDeb && editingItem.elZoneDeb.elZone) {
+            editingItem.elZoneDeb.elZone.remove();
+            editingItem.elZoneDeb.elZone = null;
+        }
         if (!editingItem._custom) {
-            // Bloc natif supprimé : mémoriser sa clé d'origine
             if (!deletedBlocs[currentLine]) deletedBlocs[currentLine] = [];
             deletedBlocs[currentLine].push(origKey(editingItem));
-            // Retirer de modifiedBlocs si existait
             if (modifiedBlocs[currentLine]) {
                 modifiedBlocs[currentLine] = modifiedBlocs[currentLine].filter(m => m.origKey !== origKey(editingItem));
             }
@@ -963,7 +970,12 @@ function updateVisuals() {
     });
     // Zones tunnel : recalculées dynamiquement depuis activeData (suivent les modifs éditeur)
     activeData.forEach(item => {
-        if (!item || item.type !== 'TUNNEL_DEB' || !item.elZone || !item.elZoneFin) return;
+        if (!item || item.type !== 'TUNNEL_DEB' || !item.elZone) return;
+        if (!item.elZoneFin) {
+            // DEB sans FIN correspondant : masquer la zone
+            item.elZone.style.height = '0px';
+            return;
+        }
         let pkDeb = item.pk;
         let pkFin = item.elZoneFin.pk;
         let distStart = (direction === 'IMPAIR') ? pkDeb - currentPk : currentPk - pkDeb;
@@ -1996,6 +2008,53 @@ window.exportHTML = function() {
     a.click();
     URL.revokeObjectURL(a.href);
     window.closeModal('config');
+};
+
+// ============================================================
+// BACKUP / RESTORE localStorage en JSON
+// ============================================================
+window.backupLS = function() {
+    var lines = ['CHAMBERY_MODANE','MODANE_CHAMBERY','CHAMBERY_AMBERIEU','AMBERIEU_CHAMBERY',
+                 'SPA_ALV','ALV_PBM','PBM_ALV','ALV_SPA'];
+    var backup = {};
+    lines.forEach(function(line) {
+        var edits = loadEditsFromLS(line);
+        if (edits.added.length || edits.deleted.length || edits.modified.length) {
+            backup[line] = edits;
+        }
+    });
+    if (Object.keys(backup).length === 0) {
+        alert('Aucune correction à sauvegarder.');
+        return;
+    }
+    var blob = new Blob([JSON.stringify(backup, null, 2)], {type: 'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'fiche_train_corrections.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+};
+
+window.restoreLS = function(input) {
+    var file = input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            var backup = JSON.parse(e.target.result);
+            var count = 0;
+            Object.keys(backup).forEach(function(line) {
+                localStorage.setItem(lsKey(line), JSON.stringify(backup[line]));
+                count++;
+            });
+            alert('Corrections restaurées pour ' + count + ' ligne(s). Rechargement...');
+            location.reload();
+        } catch(err) {
+            alert('Erreur lors de la restauration : ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    input.value = '';
 };
 </script>
 
