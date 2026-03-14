@@ -312,6 +312,7 @@ white-space: nowrap;
             <input type="checkbox" id="csToggle" onchange="window.toggleContreSens()">
         </div>
         <button class="btn-close" onclick="window.closeModal('config')">VALIDER</button>
+        <button class="btn-text" onclick="window.exportHTML()" style="margin-top:8px; color:#ffa502; font-weight:bold;">📥 EXPORTER index.html (avec corrections)</button>
     </div>
 </div>
 
@@ -951,13 +952,26 @@ function updateVisuals() {
         if (o.elZone) { o.elZone.style.top = top + "px"; o.elZone.style.height = height + "px"; }
     });
 
-    document.querySelectorAll('.speed-zone, .tunnel-zone').forEach(z => {
+    // Zones vitesse (statiques, recalculées seulement si changement de ligne)
+    document.querySelectorAll('.speed-zone').forEach(z => {
         let distStart = (direction === 'IMPAIR') ? z._pkStart - currentPk : currentPk - z._pkStart;
         let distEnd = (direction === 'IMPAIR') ? z._pkEnd - currentPk : currentPk - z._pkEnd;
         let yStart = cursorY - (distStart * SCALE);
         let yEnd = cursorY - (distEnd * SCALE);
         z.style.top = Math.min(yStart, yEnd) + "px";
         z.style.height = Math.abs(yStart - yEnd) + "px";
+    });
+    // Zones tunnel : recalculées dynamiquement depuis activeData (suivent les modifs éditeur)
+    activeData.forEach(item => {
+        if (!item || item.type !== 'TUNNEL_DEB' || !item.elZone || !item.elZoneFin) return;
+        let pkDeb = item.pk;
+        let pkFin = item.elZoneFin.pk;
+        let distStart = (direction === 'IMPAIR') ? pkDeb - currentPk : currentPk - pkDeb;
+        let distEnd   = (direction === 'IMPAIR') ? pkFin - currentPk : currentPk - pkFin;
+        let yStart = cursorY - (distStart * SCALE);
+        let yEnd   = cursorY - (distEnd   * SCALE);
+        item.elZone.style.top    = Math.min(yStart, yEnd) + "px";
+        item.elZone.style.height = Math.abs(yStart - yEnd) + "px";
     });
 
     activeData.forEach(item => {
@@ -1061,18 +1075,21 @@ function initView() {
             }
         }
     }
-    // Zones tunnel
-    let tunnelBlocs = filtered.filter(i => i && (i.type === 'TUNNEL_DEB' || i.type === 'TUNNEL_FIN')).sort((a,b) => a.pk - b.pk);
-    let inTunnel = null;
-    tunnelBlocs.forEach(t => {
-        if (t.type === 'TUNNEL_DEB') { inTunnel = t; }
-        else if (t.type === 'TUNNEL_FIN' && inTunnel) {
+    // Zones tunnel : créées et liées aux blocs TUNNEL_DEB
+    // (recalculées dynamiquement dans updateVisuals depuis activeData)
+    let allTunnelBlocs = activeData.filter(i => i && (i.type === 'TUNNEL_DEB' || i.type === 'TUNNEL_FIN')).sort((a,b) => a.pk - b.pk);
+    let pendingDeb = null;
+    allTunnelBlocs.forEach(t => {
+        if (t.type === 'TUNNEL_DEB') {
             let z = document.createElement('div');
             z.className = 'tunnel-zone';
-            z._pkStart = inTunnel.pk;
-            z._pkEnd = t.pk;
             domContainer.appendChild(z);
-            inTunnel = null;
+            t.elZone = z;  // lier la zone au bloc DEB
+            pendingDeb = t;
+        } else if (t.type === 'TUNNEL_FIN' && pendingDeb) {
+            pendingDeb.elZoneFin = t;  // référence croisée DEB→FIN
+            t.elZoneDeb = pendingDeb;  // référence croisée FIN→DEB
+            pendingDeb = null;
         }
     });
     activeData.forEach(item => {
@@ -1912,6 +1929,74 @@ const dataPBM_ALV = [
     { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
 ];
 
+
+// ============================================================
+// EXPORT index.html AVEC CORRECTIONS INTÉGRÉES
+// ============================================================
+window.exportHTML = function() {
+    var lines = ['CHAMBERY_MODANE','MODANE_CHAMBERY','CHAMBERY_AMBERIEU','AMBERIEU_CHAMBERY',
+                 'SPA_ALV','ALV_PBM','PBM_ALV','ALV_SPA'];
+    var dataNames = {
+        'CHAMBERY_MODANE':  'dataImpairBase',
+        'MODANE_CHAMBERY':  'dataPairBase',
+        'CHAMBERY_AMBERIEU':'dataChamberyAmberieuPair',
+        'AMBERIEU_CHAMBERY':'dataChamberyAmberieuImpair',
+        'SPA_ALV':  'dataSPA_ALV',
+        'ALV_PBM':  'dataALV_PBM',
+        'PBM_ALV':  'dataPBM_ALV',
+        'ALV_SPA':  'dataALV_SPA'
+    };
+
+    // Construire le bloc de patch JS pour toutes les lignes
+    var patchLines = [];
+    lines.forEach(function(line) {
+        var edits = loadEditsFromLS(line);
+        if (!edits.added.length && !edits.deleted.length && !edits.modified.length) return;
+        var dn = dataNames[line];
+        if (!dn) return;
+        var p = [];
+        p.push('(function(){');
+        // suppressions
+        edits.deleted.forEach(function(key) {
+            p.push('  ' + dn + '=' + dn + '.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!==' + JSON.stringify(key) + ';});');
+        });
+        // modifications
+        edits.modified.forEach(function(m) {
+            p.push('  ' + dn + '=' + dn + '.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)===' + JSON.stringify(m.origKey) + '){i.pk=' + m.pk + ';i.nom=' + JSON.stringify(m.nom) + ';}return i;});');
+        });
+        // ajouts
+        edits.added.forEach(function(a) {
+            p.push('  ' + dn + '.push({pk:' + a.pk + ',type:' + JSON.stringify(a.type) + ',nom:' + JSON.stringify(a.nom) + ',_custom:true});');
+        });
+        p.push('})();');
+        patchLines.push(p.join('\n'));
+    });
+
+    if (patchLines.length === 0) {
+        alert('Aucune correction à exporter.');
+        return;
+    }
+
+    // Récupérer le HTML source et injecter le patch avant la fermeture du script
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', window.location.href, false); // synchrone
+    xhr.send();
+    var html = xhr.responseText;
+
+    var patchCode = '\n// === CORRECTIONS EXPORTEES ===\n' + patchLines.join('\n') + '\n// === FIN CORRECTIONS ===\n';
+    // Injecter avant la dernière balise fermante script (en évitant le mot interdit)
+    var closeTag = '<' + '/script>';
+    var lastClose = html.lastIndexOf(closeTag);
+    html = html.substring(0, lastClose) + patchCode + html.substring(lastClose);
+
+    var blob = new Blob([html], {type: 'text/html'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'index.html';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    window.closeModal('config');
+};
 </script>
 
 </body>
