@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#25282c">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
-<title>Fiche Train v9</title>
+<title>Fiche Train v10</title>
 <style>
 :root {
     --bg-deep: #25282c;
@@ -89,16 +89,32 @@ transform: translateY(-50%);
 .obj-card { background: rgba(45, 50, 60, 0.95); padding: 8px 14px; border-radius: 4px; border-left: 5px solid #555; min-width: 200px; box-shadow: 5px 5px 15px rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.1); }
 .obj-name { font-weight: 700; font-size: 17px; color: #eee; }
 .obj-pk { font-family: var(–font-mono); font-size: 13px; color: var(–text-dim); margin-top: 2px; }
-.type-GARE .obj-card { border-color: #fff; background: rgba(70,75,85,0.95); }
-.type-VITESSE .obj-card { border-color: var(–accent-red); } .type-VITESSE .obj-name { color: var(–accent-red); font-size: 20px; }
-.type-SIGNAL .obj-card { border-color: var(–accent-orange); }
-.type-SIGNAL_CS .obj-card { border-color: #e056fd; }
-.type-PN .obj-card { border-color: #a29bfe; } .type-PN .obj-name { color: #a29bfe; }
-.type-TUNNEL .obj-card { border-color: #636e72; background: rgba(30,30,35,0.95); }
-.type-INFO .obj-card { border-color: #74b9ff; } .type-INFO .obj-name { color: #74b9ff; }
-.type-ORDRE .obj-card { border-color: #f1c40f; background: rgba(60,50,10,0.95); }
+.type-GARE .obj-card { border-color: #b2bec3; background: rgba(45,50,58,0.97); border-left-width: 6px; } .type-GARE .obj-name { color: #dfe6e9; font-size: 18px; letter-spacing: 1px; }
+.type-VITESSE .obj-card { border-color: #ff4757; background: rgba(60,10,10,0.97); border-left-width: 6px; } .type-VITESSE .obj-name { color: #ff4757; font-size: 22px; font-weight: 900; }
+.type-SIGNAL .obj-card { border-color: #2ed573; background: rgba(10,40,20,0.97); border-left-width: 6px; } .type-SIGNAL .obj-name { color: #2ed573; }
+.type-SIGNAL_CS .obj-card { border-color: #e056fd; background: rgba(40,10,50,0.97); border-left-width: 6px; } .type-SIGNAL_CS .obj-name { color: #e056fd; }
+.type-PN .obj-card { border-color: #00d2ff; background: rgba(0,30,50,0.97); border-left-width: 6px; } .type-PN .obj-name { color: #00d2ff; }
+.type-TUNNEL .obj-card, .type-TUNNEL_DEB .obj-card, .type-TUNNEL_FIN .obj-card { border-color: #8B6347; background: rgba(30,18,8,0.97); border-left-width: 6px; }
+.type-TUNNEL .obj-name, .type-TUNNEL_DEB .obj-name, .type-TUNNEL_FIN .obj-name { color: #c49a6c; }
+.type-TUNNEL_FIN .obj-card { border-left-style: dashed; opacity: 0.7; }
+.type-INFO .obj-card { border-color: #ffd32a; background: rgba(50,40,0,0.97); border-left-width: 6px; } .type-INFO .obj-name { color: #ffd32a; }
+.type-ORDRE .obj-card { border-color: #f1c40f; background: rgba(60,50,10,0.95); border-left-width: 6px; }
 .type-ORDRE_FIN .obj-card { border-color: #aaa; border-left-style: dashed; background: rgba(40,40,40,0.9); }
-.ltv-zone { position: absolute; left: 55px; width: 10px; background: repeating-linear-gradient(45deg, #f1c40f, #f1c40f 5px, #111 5px, #111 10px); border: 1px solid #f1c40f; z-index: 2; }
+.ltv-zone {
+position: absolute; left: 54px; width: 10px;
+background: repeating-linear-gradient(180deg, #f1c40f 0px, #f1c40f 8px, #000 8px, #000 16px);
+z-index: 15;
+}
+.speed-zone {
+position: absolute; left: 54px; width: 10px;
+background: repeating-linear-gradient(180deg, #ff4757 0px, #ff4757 8px, #000 8px, #000 16px);
+z-index: 15;
+}
+.tunnel-zone {
+position: absolute; left: 54px; width: 10px;
+background: repeating-linear-gradient(180deg, #8B6347 0px, #8B6347 8px, #1a0d05 8px, #1a0d05 16px);
+z-index: 15;
+}
 .track-obj.active { transform: translateY(-50%) scale(1.05); z-index: 50; filter: brightness(1.3); }
 .info-floater { position: absolute; top: calc(70px + env(safe-area-inset-top, 0px)); right: 20px; z-index: 1000; padding: 15px; border-radius: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 220px; text-align: center; }
 .info-sep { height: 1px; background: rgba(255,255,255,0.1); width: 80%; margin: 0 auto; }
@@ -142,8 +158,6 @@ select, input[type=number], input[type=text] { width: 100%; padding: 12px; backg
 @keyframes blinkRed { from { opacity: 0.3; } to { opacity: 0.7; } }
 .btn-stop { pointer-events: auto; width: 70px; height: 70px; border-radius: 20px; border: none; background: #444; color: white; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 5px 5px 15px rgba(0,0,0,0.4), inset 2px 2px 5px rgba(255,255,255,0.2); transition: all 0.2s; display: flex; justify-content: center; align-items: center; touch-action: manipulation; }
 .btn-stop.active { background: #ff0000; box-shadow: 0 0 15px #ff0000; animation: blink 0.5s infinite alternate; }
-
-/* — MODE ÉDITION — */
 body.edit-mode #objectsContainer { pointer-events: auto; }
 body.edit-mode .track-obj { pointer-events: auto; cursor: pointer; }
 body.edit-mode .track-obj .obj-card { border-style: dashed; opacity: 0.9; }
@@ -170,8 +184,6 @@ white-space: nowrap;
 .type-btn { padding: 10px; border-radius: 8px; border: 2px solid #444; background: rgba(255,255,255,0.05); color: white; font-size: 13px; font-weight: bold; cursor: pointer; touch-action: manipulation; text-align: center; }
 .type-btn.selected { border-color: var(–accent-orange); background: rgba(255,165,2,0.2); color: var(–accent-orange); }
 .btn-edit-delete { flex: 1; padding: 14px; background: rgba(255,71,87,0.2); border: 1px solid var(–accent-red); color: var(–accent-red); font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
-
-/* — MODALE ÉDITION BLOC — */
 .modal-edit-obj { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 4000; display: flex; justify-content: center; align-items: center; }
 .edit-obj-box { background: #1e2128; border: 1px solid rgba(255,255,255,0.2); border-radius: 16px; padding: 24px; width: 90%; max-width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
 .edit-obj-box h3 { color: var(–accent-orange); margin: 0 0 20px 0; font-size: 16px; letter-spacing: 1px; text-align: center; }
@@ -181,8 +193,6 @@ white-space: nowrap;
 .edit-obj-actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-edit-save { flex: 2; padding: 14px; background: var(–accent-blue); border: none; color: black; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
 .btn-edit-cancel { flex: 1; padding: 14px; background: rgba(255,255,255,0.07); border: 1px solid #555; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
-
-/* Indicateur visuel d’appui long */
 .track-obj.long-press-anim .obj-card { transition: box-shadow 0.5s, border-color 0.5s; box-shadow: 0 0 0 3px var(–accent-orange); border-color: var(–accent-orange) !important; }
 </style>
 
@@ -258,7 +268,6 @@ white-space: nowrap;
     </div>
 </div>
 
-<!-- Modales existantes -->
 <div id="incidentAlert" class="overlay-alert hidden">
     <div class="alert-box">
         <h2>⚠️ INCIDENT</h2>
@@ -280,6 +289,10 @@ white-space: nowrap;
                 <option value="MODANE_CHAMBERY">Modane ➔ Chambéry</option>
                 <option value="CHAMBERY_AMBERIEU">Chambéry ➔ Ambérieu</option>
                 <option value="AMBERIEU_CHAMBERY">Ambérieu ➔ Chambéry</option>
+                <option value="SPA_ALV">St-Pierre → Albertville</option>
+                <option value="ALV_PBM">Albertville → Pomblière</option>
+                <option value="PBM_ALV">Pomblière → Albertville</option>
+                <option value="ALV_SPA">Albertville → St-Pierre</option>
             </select>
         </div>
         <div class="setting-row">
@@ -329,7 +342,6 @@ white-space: nowrap;
     </div>
 </div>
 
-<!-- MODALE ÉDITION BLOC -->
 <div id="modalEditObj" class="modal-edit-obj hidden">
     <div class="edit-obj-box">
         <h3>✏️ MODIFIER LE BLOC</h3>
@@ -349,7 +361,6 @@ white-space: nowrap;
     </div>
 </div>
 
-<!-- MODALE AJOUT BLOC -->
 <div id="modalAddBloc" class="modal-edit-obj hidden">
     <div class="edit-obj-box">
         <h3>➕ NOUVEAU BLOC</h3>
@@ -400,11 +411,35 @@ let customOrders = [];
 let currentTrainType = "MA100";
 let isContreSens = false;
 let isEditMode = false;
-
-// Référence item en cours d'édition
 let editingItem = null;
 
 let domContainer, domViewport, domLimit, domStationName, domStationPk, domEventName, domEventPk, domOverspeed;
+
+// ============================================================
+// PERSISTANCE localStorage — blocs ajoutés/supprimés par ligne
+// ============================================================
+function lsKey(line) { return 'fiche_train_edits_' + line; }
+
+function saveEditsToLS() {
+    // Sauvegarder les blocs custom ajoutés (_custom: true)
+    let added = activeData.filter(i => i._custom === true).map(i => ({
+        pk: i.pk, type: i.type, nom: i.nom
+    }));
+    // Sauvegarder les blocs supprimés (identifiés par pk+type+nom d'origine)
+    let store = { added, deleted: deletedBlocs[currentLine] || [] };
+    try { localStorage.setItem(lsKey(currentLine), JSON.stringify(store)); } catch(e) {}
+}
+
+function loadEditsFromLS(line) {
+    try {
+        let raw = localStorage.getItem(lsKey(line));
+        if (!raw) return { added: [], deleted: [] };
+        return JSON.parse(raw);
+    } catch(e) { return { added: [], deleted: [] }; }
+}
+
+// Registre des suppressions par ligne
+let deletedBlocs = {};
 
 window.onload = function() {
     domContainer = document.getElementById('objectsContainer');
@@ -423,15 +458,10 @@ window.onload = function() {
     lastFrameTime = performance.now();
     requestAnimationFrame(gameLoop);
 
-    // PWA service worker
-    // Désinstaller tout service worker existant pour forcer le rechargement du code frais
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(regs => {
-            regs.forEach(r => r.unregister());
-        });
+        navigator.serviceWorker.getRegistrations().then(regs => { regs.forEach(r => r.unregister()); });
         caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
     }
-    // Bloquer sélection et menu contextuel
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('selectstart', e => e.preventDefault());
     document.addEventListener('dragstart', e => e.preventDefault());
@@ -465,13 +495,18 @@ window.deleteEditObj = function() {
     let idx = activeData.indexOf(editingItem);
     if (idx !== -1) {
         if (editingItem.el) editingItem.el.remove();
+        // Si c'est un bloc natif (pas custom), on mémorise la suppression
+        if (!editingItem._custom) {
+            if (!deletedBlocs[currentLine]) deletedBlocs[currentLine] = [];
+            deletedBlocs[currentLine].push({ pk: editingItem.pk, type: editingItem.type, nom: editingItem.nom });
+        }
         activeData.splice(idx, 1);
     }
+    saveEditsToLS();
     window.closeEditObj();
     updateVisuals();
 };
 
-// --- AJOUT NOUVEAU BLOC ---
 let selectedNewType = 'SIGNAL';
 
 window.openAddBloc = function() {
@@ -484,9 +519,7 @@ window.openAddBloc = function() {
     setTimeout(() => document.getElementById('addBlocNom').focus(), 100);
 };
 
-window.closeAddBloc = function() {
-    document.getElementById('modalAddBloc').classList.add('hidden');
-};
+window.closeAddBloc = function() { document.getElementById('modalAddBloc').classList.add('hidden'); };
 
 window.selectType = function(btn) {
     document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
@@ -508,6 +541,7 @@ window.saveAddBloc = function() {
     newItem.el = el;
     domContainer.appendChild(el);
     setupLongPress(el, newItem);
+    saveEditsToLS();
     window.closeAddBloc();
     updateVisuals();
 };
@@ -519,10 +553,11 @@ window.saveEditObj = function() {
     if (!newNom && isNaN(newPkVal)) { window.closeEditObj(); return; }
     if (newNom) editingItem.nom = newNom;
     if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
-    let saved = editingItem; // sauvegarder avant closeEditObj qui met editingItem = null
+    let saved = editingItem;
     window.closeEditObj();
     refreshItemDisplay(saved);
     activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
+    saveEditsToLS();
     updateVisuals();
 };
 
@@ -534,35 +569,19 @@ function refreshItemDisplay(item) {
     if (pkEl) pkEl.textContent = (item.pk / 1000).toFixed(3);
 }
 
-// Appui long sur un bloc
 function setupLongPress(el, item) {
     let timer = null;
     let moved = false;
-
     el.addEventListener('touchstart', (e) => {
         if (!isEditMode) return;
         moved = false;
         el.classList.add('long-press-anim');
         timer = setTimeout(() => {
-            if (!moved) {
-                el.classList.remove('long-press-anim');
-                window.openEditObj(item);
-            }
+            if (!moved) { el.classList.remove('long-press-anim'); window.openEditObj(item); }
         }, 600);
     }, { passive: true });
-
-    el.addEventListener('touchmove', () => {
-        moved = true;
-        clearTimeout(timer);
-        el.classList.remove('long-press-anim');
-    }, { passive: true });
-
-    el.addEventListener('touchend', () => {
-        clearTimeout(timer);
-        el.classList.remove('long-press-anim');
-    }, { passive: true });
-
-    // Clic desktop
+    el.addEventListener('touchmove', () => { moved = true; clearTimeout(timer); el.classList.remove('long-press-anim'); }, { passive: true });
+    el.addEventListener('touchend', () => { clearTimeout(timer); el.classList.remove('long-press-anim'); }, { passive: true });
     el.addEventListener('click', (e) => {
         if (!isEditMode) return;
         e.stopPropagation();
@@ -571,90 +590,176 @@ function setupLongPress(el, item) {
 }
 
 // ============================================================
-// LOGIQUE VITESSE
+// LOGIQUE VITESSE — CORRIGÉE v10
 // ============================================================
 function calculateComplexSpeed() {
+    // 1. LTV manuelle prioritaire
     let ltvLimit = null;
     customOrders.forEach(o => {
         let min = Math.min(o.pk, o.pkEnd);
         let max = Math.max(o.pk, o.pkEnd);
         if (currentPk >= min && currentPk <= max) ltvLimit = o.limits.MA100;
     });
-    if (ltvLimit) return ltvLimit;
+    if (ltvLimit !== null) return ltvLimit;
 
     let pk = currentPk;
-    let limit = "---";
-    if (currentLine === 'CHAMBERY_MODANE' || currentLine === 'MODANE_CHAMBERY') {
-        if (currentLine === 'CHAMBERY_MODANE') {
-            if (isContreSens) {
-                if (currentTrainType === 'ME100') {
-                    if (pk < 206900) limit = 100; else if (pk < 220360) limit = 90; else limit = 80;
-                } else if (currentTrainType === 'MA100') {
-                    if (pk < 162300) limit = 90; else if (pk < 198080) limit = 100; else if (pk < 220360) limit = 90; else limit = 80;
-                } else if (currentTrainType === 'MA90') {
-                    if (pk < 220360) limit = 90; else limit = 80;
-                } else if (currentTrainType === 'MA80') { limit = 80; }
-            } else { return scanSpeedSigns(); }
+
+    // ============================================================
+    // LIGNE CHAMBERY → MODANE (sens IMPAIR, PK croissant)
+    // ============================================================
+    if (currentLine === 'CHAMBERY_MODANE') {
+        if (!isContreSens) {
+            // Voie 1 NORMALE sens impair : lecture des pancartes VITESSE
+            return scanSpeedSigns();
         } else {
-            if (pk > 220360) {
-                if (currentTrainType === 'ME100') limit = 60; else if (currentTrainType === 'MA80') limit = 40; else limit = 50;
-            } else if (pk > 206900) {
-                if (currentTrainType === 'ME100' || currentTrainType === 'MA100') limit = 70; else if (currentTrainType === 'MA90') limit = 60; else limit = 50;
-            } else if (pk > 184800) {
-                if (currentTrainType === 'ME100' || currentTrainType === 'MA100') limit = 90; else if (currentTrainType === 'MA90') limit = 80; else limit = 60;
-            } else {
-                if (isContreSens) {
-                    if (pk > 162300) {
-                        if (currentTrainType === 'ME100' || currentTrainType === 'MA100') limit = 100; else if (currentTrainType === 'MA90') limit = 90; else limit = 80;
-                    } else {
-                        if (currentTrainType === 'ME100') limit = 100; else if (currentTrainType === 'MA100') limit = 90; else limit = 80;
-                    }
-                } else {
-                    if (currentTrainType === 'ME100' || currentTrainType === 'MA100') limit = 100; else if (currentTrainType === 'MA90') limit = 90; else limit = 80;
-                }
-            }
-        }
-    } else if (currentLine === 'CHAMBERY_AMBERIEU' || currentLine === 'AMBERIEU_CHAMBERY') {
-        if (currentLine === 'AMBERIEU_CHAMBERY') {
-            limit = 100;
-            if (currentTrainType === 'MA80') limit = 80;
-            if (pk >= 52000 && pk < 62600) { limit = 100; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk >= 62600 && pk < 91000) { limit = 90; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk >= 91000 && pk < 99600) { limit = 100; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk >= 99600 && pk < 102100) { limit = 80; }
-            else if (pk >= 102100 && pk < 116400) { limit = 100; if (isContreSens && currentTrainType === 'MA100') limit = 90; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk >= 116400 && pk < 118300) { limit = 80; }
-            else if (pk >= 118300) { limit = 100; if (isContreSens && currentTrainType === 'MA100') limit = 90; if (currentTrainType === 'MA80') limit = 80; }
-            return limit;
-        } else {
-            let baseSpeed = 90;
-            if (currentTrainType === 'ME100') baseSpeed = 100; else if (currentTrainType === 'MA80') baseSpeed = 80;
-            limit = baseSpeed;
-            if (pk <= 124380 && pk >= 122800) { limit = 80; }
-            else if (pk < 122800 && pk > 118300) { limit = 100; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk <= 118300 && pk >= 116500) { limit = 80; }
-            else if (pk < 116500 && pk > 102300) { limit = 100; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk <= 102300 && pk >= 100800) { limit = 80; }
-            else if (pk < 100800 && pk > 90500) { limit = 100; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk <= 90500 && pk > 61800) { limit = 90; if (currentTrainType === 'MA80') limit = 80; }
-            else if (pk <= 61800) { limit = 100; if (currentTrainType === 'MA80') limit = 80; }
-            return limit;
+            // Voie 2 CONTRE-SENS (IPCS) sens impair Chambéry→Modane
+            // Chambéry (137,6) → Comm. 161,5 : ME100=100 / MA100=90 / MA90=90 / MA80=80
+            // puis Comm. 161,5 → Bif 162,3 : idem
+            // (pas de différence entre les deux tronçons sur V2 CS impair)
+            if (currentTrainType === 'ME100') return 100;
+            if (currentTrainType === 'MA100') return 90;
+            if (currentTrainType === 'MA90') return 90;
+            if (currentTrainType === 'MA80') return 80;
         }
     }
-    return limit;
+
+    // ============================================================
+    // LIGNE MODANE → CHAMBERY (sens PAIR, PK décroissant)
+    // ============================================================
+    if (currentLine === 'MODANE_CHAMBERY') {
+        if (!isContreSens) {
+            // Voie 2 NORMALE sens pair
+            if (pk >= 206900) {
+                // Modane → St Michel Valloire (220360) → Viaduc Longefan (206900)
+                // ME120=60(1), ME100=60(1), MA100=50(1), MA90=50(1), MA80=40
+                if (currentTrainType === 'ME100') return 60;
+                if (currentTrainType === 'MA100') return 50;
+                if (currentTrainType === 'MA90') return 50;
+                if (currentTrainType === 'MA80') return 40;
+            } else if (pk >= 184800) {
+                // Sortie Viaduc → Pancarte km 184,8
+                // ME100=90, MA100=90, MA90=80, MA80=60
+                if (currentTrainType === 'ME100') return 90;
+                if (currentTrainType === 'MA100') return 90;
+                if (currentTrainType === 'MA90') return 80;
+                if (currentTrainType === 'MA80') return 60;
+            } else if (pk >= 175198) {
+                // Pancarte 184,8 → Aiguebelle : ME120=105 → on prend 100 pour ME100
+                if (currentTrainType === 'ME100') return 100;
+                if (currentTrainType === 'MA100') return 100;
+                if (currentTrainType === 'MA90') return 90;
+                if (currentTrainType === 'MA80') return 80;
+            } else if (pk >= 162300) {
+                // Aiguebelle → Bif Montmélian (PK 150,7) : ME120=110, ME100=100, MA100=100, MA90=90, MA80=80
+                if (currentTrainType === 'ME100') return 100;
+                if (currentTrainType === 'MA100') return 100;
+                if (currentTrainType === 'MA90') return 90;
+                if (currentTrainType === 'MA80') return 80;
+            } else {
+                // Bif Montmélian → Chambéry : ME120=120, ME100=100, MA100=100, MA90=90, MA80=80
+                if (currentTrainType === 'ME100') return 100;
+                if (currentTrainType === 'MA100') return 100;
+                if (currentTrainType === 'MA90') return 90;
+                if (currentTrainType === 'MA80') return 80;
+            }
+        } else {
+            // Voie 1 CONTRE-SENS (V1 sens pair = rouler à contre-sens)
+            if (pk >= 206900) {
+                // Modane → St Jean (même que V2) : ME100=60, MA100=50, MA90=50, MA80=40
+                if (currentTrainType === 'ME100') return 60;
+                if (currentTrainType === 'MA100') return 50;
+                if (currentTrainType === 'MA90') return 50;
+                if (currentTrainType === 'MA80') return 40;
+            } else if (pk >= 198080) {
+                // Viaduc → St Avre (V1 sens pair CS) : ME100=90, MA100=90, MA90=80, MA80=60
+                if (currentTrainType === 'ME100') return 90;
+                if (currentTrainType === 'MA100') return 90;
+                if (currentTrainType === 'MA90') return 80;
+                if (currentTrainType === 'MA80') return 60;
+            } else if (pk >= 162300) {
+                // St Avre → Bif St Pierre d'Albigny (V1 CS)
+                // ME100=100, MA100=90, MA90=80, MA80=80
+                if (currentTrainType === 'ME100') return 100;
+                if (currentTrainType === 'MA100') return 90;
+                if (currentTrainType === 'MA90') return 80;
+                if (currentTrainType === 'MA80') return 80;
+            } else {
+                // Bif St Pierre → Chambéry : ME120=120, ME100=100, MA100=90, MA90=80, MA80=80
+                if (currentTrainType === 'ME100') return 100;
+                if (currentTrainType === 'MA100') return 90;
+                if (currentTrainType === 'MA90') return 80;
+                if (currentTrainType === 'MA80') return 80;
+            }
+        }
+    }
+
+    // ============================================================
+    // LIGNE CHAMBERY → AMBERIEU (sens PAIR, PK décroissant)
+    // ============================================================
+    if (currentLine === 'CHAMBERY_AMBERIEU') {
+        if (!isContreSens) {
+            // Voie 2 normale sens pair (Chambéry → Ambérieu)
+            // Lecture pancartes VITESSE (scanSpeedSigns gère la direction PAIR)
+            return scanSpeedSigns();
+        } else {
+            // Voie 1 contre-sens (IPCS) Chambéry→Ambérieu
+            // Mêmes vitesses que voie 2 d'après tableau image 2
+            return scanSpeedSigns();
+        }
+    }
+
+    // ============================================================
+    // LIGNE AMBERIEU → CHAMBERY (sens IMPAIR, PK croissant)
+    // ============================================================
+    if (currentLine === 'AMBERIEU_CHAMBERY') {
+        if (!isContreSens) {
+            return scanSpeedSigns();
+        } else {
+            // Contre-sens Ambérieu→Chambéry sur V2
+            // Même logique que voie 1 sens pair avec quelques ajustements
+            return scanSpeedSigns();
+        }
+    }
+
+    // ============================================================
+    // LIGNES TARENTAISE (SPA_ALV / ALV_PBM / PBM_ALV / ALV_SPA)
+    // Vitesse de base : MA100=70 tout le long
+    // ME100/HLP: 80 sur SPA↔ALV et ALV→PBM jusqu'à AIG, 70 sinon
+    // Transitions gérées par pancartes VITESSE dans les données
+    // ============================================================
+    if (['SPA_ALV','ALV_SPA'].includes(currentLine)) {
+        if (currentTrainType === 'ME100') return 80;
+        return 70;
+    }
+    if (currentLine === 'ALV_PBM' || currentLine === 'PBM_ALV') {
+        // scanSpeedSigns lit la pancarte VITESSE posée dans les données
+        // (transition 80→70 à AIG pour ALV_PBM, 70→80 à MOS pour PBM_ALV)
+        let v = scanSpeedSigns();
+        if (v && v !== '---') return v;
+        // Par défaut: ME100=80, MA100=70
+        if (currentTrainType === 'ME100') return 80;
+        return 70;
+    }
+
+    return "---";
 }
 
 function scanSpeedSigns() {
+    // Trouve la dernière pancarte VITESSE dépassée
     let validLimits = activeData.filter(item => item.type === 'VITESSE' && item.limits);
     let bestLimit = null;
     if (direction === 'IMPAIR') {
+        // On roule PK croissant : chercher la dernière pancarte VITESSE dont pk <= currentPk
         let passed = validLimits.filter(i => i.pk <= currentPk);
         if (passed.length > 0) bestLimit = passed[passed.length - 1];
     } else {
+        // On roule PK décroissant : chercher la dernière pancarte VITESSE dont pk >= currentPk
         let passed = validLimits.filter(i => i.pk >= currentPk);
         if (passed.length > 0) bestLimit = passed[0];
     }
-    if (bestLimit) return bestLimit.limits[currentTrainType] || "---";
+    if (bestLimit && bestLimit.limits) {
+        return bestLimit.limits[currentTrainType] || bestLimit.limits['MA100'] || "---";
+    }
     return "---";
 }
 
@@ -693,9 +798,16 @@ window.changeLine = function() {
     else if (currentLine === 'MODANE_CHAMBERY') { direction = 'PAIR'; currentPk = 220360; }
     else if (currentLine === 'CHAMBERY_AMBERIEU') { direction = 'PAIR'; currentPk = 137600; }
     else if (currentLine === 'AMBERIEU_CHAMBERY') { direction = 'IMPAIR'; currentPk = 51400; }
+    else if (currentLine === 'SPA_ALV') { direction = 'IMPAIR'; currentPk = 0; }
+    else if (currentLine === 'ALV_PBM') { direction = 'IMPAIR'; currentPk = 23600; }
+    else if (currentLine === 'PBM_ALV') { direction = 'PAIR'; currentPk = 57229; }
+    else if (currentLine === 'ALV_SPA') { direction = 'PAIR'; currentPk = 23625; }
+    // Reset contre-sens quand on change de ligne
+    isContreSens = false;
+    document.getElementById('csToggle').checked = false;
     initView();
 };
-window.toggleContreSens = function() { isContreSens = !isContreSens; initView(); };
+window.toggleContreSens = function() { isContreSens = document.getElementById('csToggle').checked; initView(); };
 window.updateSettings = function() { currentTrainType = document.getElementById('trainSelect').value; };
 window.toggleStop = function(forcePause = false) {
     const btn = document.getElementById('btnStop');
@@ -775,8 +887,6 @@ function gameLoop(timestamp) {
 function updateVisuals() {
     let screenH = domViewport.clientHeight;
     if (!screenH || screenH < 100) screenH = window.innerHeight - 60;
-
-    // cursorY = 75% de la hauteur de objectsContainer, même référentiel que top:75% du train-cursor
     const cursorY = domContainer.clientHeight * 0.75;
 
     document.getElementById('currentPkDisplay').innerText = "PK " + (currentPk / 1000).toFixed(3);
@@ -801,6 +911,15 @@ function updateVisuals() {
         let top = Math.min(yStart, yEnd);
         let height = Math.abs(yStart - yEnd);
         if (o.elZone) { o.elZone.style.top = top + "px"; o.elZone.style.height = height + "px"; }
+    });
+
+    document.querySelectorAll('.speed-zone, .tunnel-zone').forEach(z => {
+        let distStart = (direction === 'IMPAIR') ? z._pkStart - currentPk : currentPk - z._pkStart;
+        let distEnd = (direction === 'IMPAIR') ? z._pkEnd - currentPk : currentPk - z._pkEnd;
+        let yStart = cursorY - (distStart * SCALE);
+        let yEnd = cursorY - (distEnd * SCALE);
+        z.style.top = Math.min(yStart, yEnd) + "px";
+        z.style.height = Math.abs(yStart - yEnd) + "px";
     });
 
     activeData.forEach(item => {
@@ -835,32 +954,77 @@ function updateVisuals() {
 // ============================================================
 function initView() {
     let raw = [];
-    if (currentLine === 'CHAMBERY_MODANE') { raw = dataImpairBase; }
-    else if (currentLine === 'MODANE_CHAMBERY') { raw = dataPairBase; }
-    else if (currentLine === 'CHAMBERY_AMBERIEU') { raw = dataChamberyAmberieuPair; }
-    else if (currentLine === 'AMBERIEU_CHAMBERY') { raw = dataChamberyAmberieuImpair; }
+    if (currentLine === 'CHAMBERY_MODANE') { raw = dataImpairBase; direction = 'IMPAIR'; }
+    else if (currentLine === 'MODANE_CHAMBERY') { raw = dataPairBase; direction = 'PAIR'; }
+    else if (currentLine === 'CHAMBERY_AMBERIEU') { raw = dataChamberyAmberieuPair; direction = 'PAIR'; }
+    else if (currentLine === 'AMBERIEU_CHAMBERY') { raw = dataChamberyAmberieuImpair; direction = 'IMPAIR'; }
+    else if (currentLine === 'SPA_ALV') { raw = dataSPA_ALV; direction = 'IMPAIR'; }
+    else if (currentLine === 'ALV_PBM') { raw = dataALV_PBM; direction = 'IMPAIR'; }
+    else if (currentLine === 'PBM_ALV') { raw = dataPBM_ALV; direction = 'PAIR'; }
+    else if (currentLine === 'ALV_SPA') { raw = dataALV_SPA; direction = 'PAIR'; }
     if (!raw) raw = [];
 
     let filtered = raw.filter(item => {
+        if (!item) return false;
         if (!item.track) return true;
-        if (isContreSens) return item.track === "CS"; else return item.track === "NORMAL";
+        if (isContreSens) return item.track === "CS";
+        else return item.track === "NORMAL";
     });
+    // Charger les modifications sauvegardées pour cette ligne
+    let edits = loadEditsFromLS(currentLine);
+    // Appliquer les suppressions
+    let deletedKeys = (edits.deleted || []).map(d => d.pk + '|' + d.type + '|' + d.nom);
+    if (!deletedBlocs[currentLine]) deletedBlocs[currentLine] = edits.deleted || [];
+    filtered = filtered.filter(item => !deletedKeys.includes(item.pk + '|' + item.type + '|' + item.nom));
+    // Ajouter les blocs custom sauvegardés
+    let savedCustom = (edits.added || []).map(i => ({ ...i, _custom: true }));
+
     let ltvPoints = [];
     customOrders.forEach(o => {
         ltvPoints.push({ pk: o.pk, type: "ORDRE", nom: o.nom, limits: o.limits });
         ltvPoints.push({ pk: o.pkEnd, type: "ORDRE_FIN", nom: "FIN " + o.nom });
     });
-    activeData = [...filtered, ...ltvPoints].sort((a, b) => (direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk));
+    activeData = [...filtered, ...savedCustom, ...ltvPoints].sort((a, b) => (direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk));
     domContainer.innerHTML = '';
     customOrders.forEach(o => {
         let z = document.createElement('div'); z.className = 'ltv-zone'; o.elZone = z; domContainer.appendChild(z);
     });
+    // Zones hachurées rouges ≤80 — désactivées sur RT5077 (VMax 80 partout, signalé terrain)
+    const isRT5077 = (['SPA_ALV','ALV_PBM','PBM_ALV','ALV_SPA'].includes(currentLine));
+    if (!isRT5077) {
+        let vitesseBlocs = filtered.filter(i => i && i.type === 'VITESSE').sort((a,b) => a.pk - b.pk);
+        for (let i = 0; i < vitesseBlocs.length - 1; i++) {
+            let v = vitesseBlocs[i];
+            let vitesseVal = v.limits ? (v.limits[currentTrainType] || v.limits['MA100']) : parseInt(v.nom);
+            if (parseInt(vitesseVal) <= 80) {
+                let z = document.createElement('div');
+                z.className = 'speed-zone';
+                z._pkStart = v.pk;
+                z._pkEnd = vitesseBlocs[i+1].pk;
+                domContainer.appendChild(z);
+            }
+        }
+    }
+    // Zones tunnel
+    let tunnelBlocs = filtered.filter(i => i && (i.type === 'TUNNEL_DEB' || i.type === 'TUNNEL_FIN')).sort((a,b) => a.pk - b.pk);
+    let inTunnel = null;
+    tunnelBlocs.forEach(t => {
+        if (t.type === 'TUNNEL_DEB') { inTunnel = t; }
+        else if (t.type === 'TUNNEL_FIN' && inTunnel) {
+            let z = document.createElement('div');
+            z.className = 'tunnel-zone';
+            z._pkStart = inTunnel.pk;
+            z._pkEnd = t.pk;
+            domContainer.appendChild(z);
+            inTunnel = null;
+        }
+    });
     activeData.forEach(item => {
+        if (!item) return;
         let el = document.createElement('div');
         let cssType = item.type;
-        if (item.type === "ORDRE_FIN") cssType = "ORDRE_FIN";
+        if (item.type === "TUNNEL_INT") cssType = "TUNNEL";
         el.className = `track-obj type-${cssType}`;
-        if (item.type === "TUNNEL_INT") el.className = "track-obj type-TUNNEL";
         let html = `<div class="obj-card"><div class="obj-name">${item.nom || item.type}</div><div class="obj-pk">${(item.pk / 1000).toFixed(3)}</div></div>`;
         el.innerHTML = html;
         item.el = el;
@@ -876,7 +1040,7 @@ const view = document.getElementById('trackViewport');
 if (view) {
     view.addEventListener('touchstart', (e) => {
         if (e.target.closest('.btn-calib')) return;
-        if (isEditMode) return; // En mode édition, pas de scroll automatique
+        if (isEditMode) return;
         window.toggleStop(true);
         lastTouchY = e.touches[0].clientY;
     }, { passive: false });
@@ -921,11 +1085,11 @@ function onGpsError(err) {
 }
 
 // ============================================================
-// DONNÉES LIGNES
+// DONNÉES : CHAMBERY → MODANE (sens IMPAIR)
 // ============================================================
 const dataImpairBase = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" },
-    { pk: 138000, type: "VITESSE", nom: "100", limits: { MA100: 100 } },
+    { pk: 138000, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 137300, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
     { pk: 137000, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
     { pk: 138200, type: "PN", nom: "PN 27" },
@@ -942,15 +1106,14 @@ const dataImpairBase = [
     { pk: 148500, type: "PN", nom: "PN 36" },
     { pk: 149100, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 149100, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 149344, type: "PN", nom: "PN 37" },
-    { pk: 149500, type: "TIV_D", nom: "TIV D 120" },
-    { pk: 150000, type: "VITESSE", nom: "Approche Bif", limits: { MA100: 100 } },
     { pk: 150300, type: "SIGNAL", nom: "Carré 103", track: "NORMAL" }, { pk: 150300, type: "SIGNAL_CS", nom: "Carré 101 (CS)", track: "CS" },
     { pk: 150900, type: "GARE", nom: "MONTMELIAN" },
     { pk: 151100, type: "SIGNAL", nom: "Carré 123", track: "NORMAL" },
     { pk: 152800, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 154700, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 154700, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 154800, type: "PN", nom: "PN 39" },
-    { pk: 156000, type: "TUNNEL", nom: "Galerie du record", length: 100 },
+    { pk: 155900, type: "TUNNEL_DEB", nom: "⬛ Galerie du Record" },
+    { pk: 156100, type: "TUNNEL_FIN", nom: "Sortie Galerie Record" },
     { pk: 156100, type: "SIGNAL_CS", nom: "Carré (CS)", track: "CS" },
     { pk: 156900, type: "SIGNAL", nom: "Carré", track: "NORMAL" },
     { pk: 157200, type: "INFO", nom: "DBC Voie 1", track: "NORMAL" }, { pk: 157200, type: "INFO", nom: "DBC Voie 2 (CS)", track: "CS" },
@@ -964,7 +1127,8 @@ const dataImpairBase = [
     { pk: 162500, type: "SIGNAL", nom: "Carré 163", track: "NORMAL" }, { pk: 162500, type: "SIGNAL_CS", nom: "Carré 161 V2 Ban (CS)", track: "CS" },
     { pk: 163900, type: "SIGNAL", nom: "Carré 173", track: "NORMAL" }, { pk: 163900, type: "SIGNAL_CS", nom: "Carré 171 V2 Ban TECS (CS)", track: "CS" },
     { pk: 165800, type: "SIGNAL", nom: "Carré", track: "NORMAL" },
-    { pk: 166200, type: "TUNNEL", nom: "Sout. Chamousset", length: 300 },
+    { pk: 166200, type: "TUNNEL_DEB", nom: "⬛ Tunnel Chamousset" },
+    { pk: 166400, type: "TUNNEL_FIN", nom: "Sortie Chamousset" },
     { pk: 166761, type: "PN", nom: "PN 46" },
     { pk: 167100, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 168200, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 168200, type: "SIGNAL_CS", nom: "Carré (CS)", track: "CS" },
@@ -990,7 +1154,8 @@ const dataImpairBase = [
     { pk: 185500, type: "SIGNAL", nom: "Carré 301", track: "NORMAL" }, { pk: 185500, type: "SIGNAL_CS", nom: "Carré 303 ⚠️V2bis INT (CS)", track: "CS" },
     { pk: 186700, type: "SIGNAL", nom: "Carré 311", track: "NORMAL" },
     { pk: 189100, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 189200, type: "TUNNEL", nom: "Sout. La Chapelle", length: 250 },
+    { pk: 189200, type: "TUNNEL_DEB", nom: "⬛ Tunnel La Chapelle" },
+    { pk: 189500, type: "TUNNEL_FIN", nom: "Sortie La Chapelle" },
     { pk: 192111, type: "PN", nom: "PN 60" },
     { pk: 192200, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 193100, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
@@ -1003,39 +1168,44 @@ const dataImpairBase = [
     { pk: 198400, type: "SIGNAL", nom: "Carré 2407", track: "NORMAL" }, { pk: 198400, type: "SIGNAL_CS", nom: "Carré 2405 (CS)", track: "CS" },
     { pk: 199300, type: "SIGNAL", nom: "C 2461 V1bis / C 2459 V1", track: "NORMAL" }, { pk: 199300, type: "SIGNAL_CS", nom: "Carré 2457 (CS)", track: "CS" },
     { pk: 200300, type: "SIGNAL", nom: "Carré", track: "NORMAL" }, { pk: 200300, type: "SIGNAL_CS", nom: "Carré (CS)", track: "CS" },
-    { pk: 200500, type: "TIV_D", nom: "TIV D 90" },
-    { pk: 201400, type: "VITESSE", nom: "Exécution 90", limits: { MA100: 90 } },
-    { pk: 201500, type: "TUNNEL", nom: "Tunnel Madeleine", length: 390 },
+    { pk: 201400, type: "VITESSE", nom: "Exécution 90", limits: { ME100: 90, MA100: 90, MA90: 80, MA80: 70 } },
+    { pk: 201700, type: "TUNNEL_DEB", nom: "⬛ Tunnel Madeleine" },
+    { pk: 202100, type: "TUNNEL_FIN", nom: "Sortie Madeleine" },
     { pk: 202500, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 202500, type: "SIGNAL_CS", nom: "F (CS)", track: "CS" },
-    { pk: 203300, type: "REPRISE", nom: "Reprise 100", limits: { MA100: 100 } },
-    { pk: 204000, type: "PENTE", nom: "Rampe Maurienne" }, { pk: 204000, type: "SIGNAL", nom: "F", track: "NORMAL" },
+    { pk: 204000, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 204100, type: "SIGNAL_CS", nom: "F (CS)", track: "CS" },
-    { pk: 205500, type: "TIV_D", nom: "TIV D 60" },
     { pk: 205600, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 205600, type: "SIGNAL_CS", nom: "Carré 2501 (CS)", track: "CS" },
-    { pk: 206500, type: "VITESSE", nom: "Exécution 60", limits: { MA100: 60 } },
-    { pk: 206900, type: "TUNNEL", nom: "Viaduc Longefan", length: 100 },
+    { pk: 206500, type: "VITESSE", nom: "Exécution 60", limits: { ME100: 60, MA100: 60, MA90: 60, MA80: 50 } },
+    { pk: 206900, type: "TUNNEL_DEB", nom: "⬛ Viaduc Longefan" },
+    { pk: 207000, type: "TUNNEL_FIN", nom: "Sortie Viaduc" },
     { pk: 207200, type: "SIGNAL", nom: "Carré 2603", track: "NORMAL" },
     { pk: 208088, type: "GARE", nom: "ST JEAN DE MAURIENNE" },
     { pk: 208150, type: "SIGNAL_CS", nom: "Carré 2611 (CS)", track: "CS" },
     { pk: 208160, type: "SIGNAL", nom: "Carré 2613", track: "NORMAL" },
     { pk: 208900, type: "SIGNAL", nom: "Carré 2641 TECS", track: "NORMAL" }, { pk: 208900, type: "SIGNAL_CS", nom: "Carré 2639 TECS (CS)", track: "CS" },
     { pk: 210500, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 211000, type: "TUNNEL", nom: "Sout. Villargondran", length: 400 },
+    { pk: 211000, type: "TUNNEL_DEB", nom: "⬛ Tunnel Villargondran" },
+    { pk: 211100, type: "TUNNEL_FIN", nom: "Sortie Villargondran" },
     { pk: 211400, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
-    { pk: 211600, type: "VITESSE", nom: "Reprise 100 (CS 90)", limits: { MA100: 100 } },
+    { pk: 211600, type: "VITESSE", nom: "Reprise 100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 211900, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 212400, type: "SIGNAL_CS", nom: "Carré (CS)", track: "CS" },
-    { pk: 212700, type: "TUNNEL", nom: "Sout. St Julien", length: 500 },
+    { pk: 212700, type: "TUNNEL_DEB", nom: "⬛ Tunnel St Julien" },
+    { pk: 213100, type: "TUNNEL_FIN", nom: "Sortie St Julien" },
     { pk: 213200, type: "SIGNAL", nom: "Carré 1", track: "NORMAL" },
     { pk: 214600, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 214600, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 216000, type: "SIGNAL", nom: "F", track: "NORMAL" }, { pk: 216000, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
-    { pk: 216400, type: "TUNNEL", nom: "Tunnel St Martin", length: 300 },
+    { pk: 216400, type: "TUNNEL_DEB", nom: "⬛ Tunnel St Martin" },
+    { pk: 216700, type: "TUNNEL_FIN", nom: "Sortie St Martin" },
     { pk: 217600, type: "SIGNAL", nom: "Carré", track: "NORMAL" },
     { pk: 218200, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 219300, type: "SIGNAL", nom: "Carré 253", track: "NORMAL" }, { pk: 219300, type: "SIGNAL_CS", nom: "Carré 251 TSCS (CS)", track: "CS" },
     { pk: 220360, type: "GARE", nom: "ST MICHEL VALLOIRE" }
 ];
 
+// ============================================================
+// DONNÉES : MODANE → CHAMBERY (sens PAIR)
+// ============================================================
 const dataPairBase = [
     { pk: 220360, type: "GARE", nom: "ST MICHEL VALLOIRE" },
     { pk: 220000, type: "SIGNAL", nom: "C 260 VA / C 262 V2 TECS", track: "NORMAL" },
@@ -1043,24 +1213,28 @@ const dataPairBase = [
     { pk: 218000, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 217500, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 216900, type: "SIGNAL_CS", nom: "C (CS)", track: "CS" },
-    { pk: 216400, type: "TUNNEL", nom: "Tunnel St Martin", length: 300 },
+    { pk: 216700, type: "TUNNEL_DEB", nom: "⬛ Tunnel St Martin" },
+    { pk: 216400, type: "TUNNEL_FIN", nom: "Sortie St Martin" },
     { pk: 215700, type: "SIGNAL", nom: "C 2", track: "NORMAL" },
     { pk: 214900, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 214200, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 213600, type: "SIGNAL_CS", nom: "C (CS)", track: "CS" },
-    { pk: 212700, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 212700, type: "TUNNEL", nom: "Sout. St Julien", length: 500 },
+    { pk: 213100, type: "TUNNEL_DEB", nom: "⬛ Tunnel St Julien" },
+    { pk: 212700, type: "TUNNEL_FIN", nom: "Sortie St Julien" },
     { pk: 211200, type: "SIGNAL", nom: "C 2652", track: "NORMAL" }, { pk: 211200, type: "SIGNAL_CS", nom: "C 2654 TSCS (CS)", track: "CS" },
-    { pk: 211000, type: "TUNNEL", nom: "Sout. Villargondran", length: 400 },
+    { pk: 211100, type: "TUNNEL_DEB", nom: "⬛ Tunnel Villargondran" },
+    { pk: 211000, type: "TUNNEL_FIN", nom: "Sortie Villargondran" },
     { pk: 209800, type: "SIGNAL", nom: "C 2642", track: "NORMAL" }, { pk: 209800, type: "SIGNAL_CS", nom: "C 2644 (CS)", track: "CS" },
     { pk: 208700, type: "SIGNAL", nom: "C 2626", track: "NORMAL" }, { pk: 208700, type: "SIGNAL_CS", nom: "C 2628 (CS)", track: "CS" },
     { pk: 208088, type: "GARE", nom: "ST JEAN DE MAURIENNE" },
     { pk: 207928, type: "SIGNAL", nom: "C 2602", track: "NORMAL" }, { pk: 207928, type: "SIGNAL_CS", nom: "C 2604 (CS)", track: "CS" },
-    { pk: 206900, type: "TUNNEL", nom: "Viaduc Longefan", length: 100 },
+    { pk: 207000, type: "TUNNEL_DEB", nom: "⬛ Viaduc Longefan" },
+    { pk: 206900, type: "TUNNEL_FIN", nom: "Sortie Viaduc" },
     { pk: 206300, type: "SIGNAL", nom: "C 2504", track: "NORMAL" }, { pk: 206300, type: "SIGNAL_CS", nom: "C (CS)", track: "CS" },
     { pk: 204700, type: "SIGNAL", nom: "Carré", track: "NORMAL" }, { pk: 204700, type: "SIGNAL_CS", nom: "C (CS)", track: "CS" },
     { pk: 202400, type: "SIGNAL", nom: "C 2470", track: "NORMAL" }, { pk: 202400, type: "SIGNAL_CS", nom: "C 2472 (CS)", track: "CS" },
-    { pk: 201500, type: "TUNNEL", nom: "Tunnel Madeleine", length: 390 },
+    { pk: 202100, type: "TUNNEL_DEB", nom: "⬛ Tunnel Madeleine" },
+    { pk: 201700, type: "TUNNEL_FIN", nom: "Sortie Madeleine" },
     { pk: 200300, type: "SIGNAL", nom: "C 2462", track: "NORMAL" }, { pk: 200300, type: "SIGNAL_CS", nom: "C 2464 (CS)", track: "CS" },
     { pk: 199100, type: "SIGNAL", nom: "C 2412", track: "NORMAL" }, { pk: 199100, type: "SIGNAL_CS", nom: "C 2414 V1 / C 416 V1bis (CS)", track: "CS" },
     { pk: 198080, type: "GARE", nom: "ST AVRE LA CHAMBRE" },
@@ -1071,7 +1245,8 @@ const dataPairBase = [
     { pk: 192111, type: "PN", nom: "PN 60" },
     { pk: 191300, type: "SIGNAL_CS", nom: "C (CS)", track: "CS" },
     { pk: 189700, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 189200, type: "TUNNEL", nom: "Sout. La Chapelle", length: 250 },
+    { pk: 189500, type: "TUNNEL_DEB", nom: "⬛ Tunnel La Chapelle" },
+    { pk: 189200, type: "TUNNEL_FIN", nom: "Sortie La Chapelle" },
     { pk: 188400, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 187100, type: "SIGNAL", nom: "C 312", track: "NORMAL" }, { pk: 187100, type: "SIGNAL_CS", nom: "C 314 TSCS (CS)", track: "CS" },
     { pk: 186000, type: "SIGNAL_CS", nom: "C 306 V1 / C 308 V1bis TECS (CS)", track: "CS" },
@@ -1100,7 +1275,8 @@ const dataPairBase = [
     { pk: 167450, type: "GARE", nom: "CHAMOUSSET" },
     { pk: 166882, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 166761, type: "PN", nom: "PN 46" },
-    { pk: 166200, type: "TUNNEL", nom: "Sout. Chamousset", length: 300 },
+    { pk: 166400, type: "TUNNEL_DEB", nom: "⬛ Tunnel Chamousset" },
+    { pk: 166200, type: "TUNNEL_FIN", nom: "Sortie Chamousset" },
     { pk: 165700, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 164500, type: "SIGNAL", nom: "C 174", track: "NORMAL" }, { pk: 164500, type: "SIGNAL_CS", nom: "C 176 TSCS (CS)", track: "CS" },
     { pk: 163100, type: "SIGNAL", nom: "C 164", track: "NORMAL" }, { pk: 163100, type: "SIGNAL_CS", nom: "C 166 (CS)", track: "CS" },
@@ -1113,7 +1289,8 @@ const dataPairBase = [
     { pk: 157400, type: "SIGNAL_CS", nom: "A (CS)", track: "CS" },
     { pk: 157400, type: "PN", nom: "PN 41" },
     { pk: 156800, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 156200, type: "TUNNEL", nom: "Galerie du record", length: 100 },
+    { pk: 155900, type: "TUNNEL_DEB", nom: "⬛ Galerie du Record" },
+    { pk: 156200, type: "TUNNEL_FIN", nom: "Sortie Galerie Record" },
     { pk: 156100, type: "SIGNAL_CS", nom: "C (CS)", track: "CS" },
     { pk: 155100, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 154800, type: "PN", nom: "PN 39" },
@@ -1138,11 +1315,12 @@ const dataPairBase = [
     { pk: 138364, type: "SIGNAL_CS", nom: "C 364 TSCS (CS)", track: "CS" },
     { pk: 138200, type: "PN", nom: "PN 27" },
     { pk: 137800, type: "SIGNAL", nom: "C 362", track: "NORMAL" },
-    { pk: 137600, type: "GARE", nom: "CHAMBERY" },
-    { pk: 137300, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
-    { pk: 137000, type: "SIGNAL", nom: "Nf", track: "NORMAL" }
+    { pk: 137600, type: "GARE", nom: "CHAMBERY" }
 ];
 
+// ============================================================
+// DONNÉES : CHAMBERY → AMBERIEU (sens PAIR, PK décroissant)
+// ============================================================
 const dataChamberyAmberieuPair = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" },
     { pk: 135630, type: "PN", nom: "PN 24a", track: "NORMAL" },
@@ -1151,132 +1329,111 @@ const dataChamberyAmberieuPair = [
     { pk: 133700, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 133600, type: "SIGNAL_CS", nom: "A 133,6", track: "CS" },
     { pk: 133100, type: "PN", nom: "PN 23" },
-    { pk: 132200, type: "TIV_D", nom: "TIV 110 (Pointe)" },
     { pk: 132000, type: "SIGNAL", nom: "Nf 150", track: "NORMAL" }, { pk: 132000, type: "SIGNAL_CS", nom: "Nf 132", track: "CS" },
     { pk: 130800, type: "GARE", nom: "VOGLANS" },
     { pk: 130200, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 128800, type: "INFO", nom: "GSMR Canal 2", track: "NORMAL" },
     { pk: 128320, type: "GARE", nom: "VIVIERS DU LAC" },
     { pk: 128200, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 126800, type: "SIGNAL", nom: "F 126,8", track: "NORMAL" }, { pk: 126800, type: "SIGNAL_CS", nom: "A 126,8", track: "CS" },
     { pk: 125500, type: "SIGNAL", nom: "Nf 534", track: "NORMAL" }, { pk: 125500, type: "SIGNAL_CS", nom: "Nf 536 TSCS", track: "CS" },
-    { pk: 124380, type: "VITESSE", nom: "Exécution 80", limits: { MA100: 80 } },
+    // Aix les Bains : TIV 80 avant gare, reprise 100 après
+    { pk: 124380, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 80, MA90: 80, MA80: 80 } },
     { pk: 124200, type: "SIGNAL", nom: "Nf 524 / Nf 526", track: "NORMAL" }, { pk: 124200, type: "SIGNAL_CS", nom: "Nf 528", track: "CS" },
     { pk: 123900, type: "PN", nom: "PN 15" },
     { pk: 123600, type: "GARE", nom: "AIX LES BAINS" },
     { pk: 123500, type: "SIGNAL", nom: "Nf + TECS + ID", track: "NORMAL" }, { pk: 123300, type: "SIGNAL_CS", nom: "Nf 434 TECS", track: "CS" },
     { pk: 123100, type: "SIGNAL", nom: "Nf 412 (V2) / Nf 408 (VC)", track: "NORMAL" },
-    { pk: 122800, type: "VITESSE", nom: "Reprise 100", limits: { MA100: 100 } },
+    { pk: 122800, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 80, MA80: 80 } },
     { pk: 122500, type: "PN", nom: "PN 13" },
     { pk: 122000, type: "PN", nom: "PN 12" },
     { pk: 121300, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 121200, type: "PN", nom: "PN 11" },
     { pk: 120800, type: "PN", nom: "PN 10" },
     { pk: 119700, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 118200, type: "SIGNAL_CS", nom: "A 118,2", track: "CS" },
     { pk: 118100, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 116700, type: "SIGNAL_CS", nom: "Nf 116,7", track: "CS" },
     { pk: 116600, type: "SIGNAL", nom: "Nf 116,6", track: "NORMAL" },
-    { pk: 116450, type: "TUNNEL", nom: "Tunnel Colombière", length: 1193 },
-    { pk: 115950, type: "TUNNEL", nom: "Tunnel Colombière", length: 1193 },
-    { pk: 115450, type: "TUNNEL", nom: "Tunnel Colombière", length: 1193 },
+    { pk: 116400, type: "TUNNEL_FIN", nom: "Sortie Colombière" },
+    { pk: 115200, type: "TUNNEL_DEB", nom: "⬛ Tunnel Colombière" },
     { pk: 114776, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 114610, type: "PN", nom: "PN 7" },
     { pk: 114000, type: "PN", nom: "PN 6" },
-    { pk: 113800, type: "TUNNEL", nom: "Tunnel Brison", length: 375 },
+    { pk: 113900, type: "TUNNEL_FIN", nom: "Sortie Brison" },
+    { pk: 113500, type: "TUNNEL_DEB", nom: "⬛ Tunnel Brison" },
     { pk: 113400, type: "PN", nom: "PN 5" },
     { pk: 113100, type: "SIGNAL", nom: "Nf 113,1", track: "NORMAL" },
-    { pk: 112400, type: "TUNNEL", nom: "Galerie Gd Rocher", length: 411 },
+    { pk: 112500, type: "TUNNEL_FIN", nom: "Sortie Grand Rocher" },
+    { pk: 112000, type: "TUNNEL_DEB", nom: "⬛ Galerie Grand Rocher" },
     { pk: 111600, type: "SIGNAL", nom: "Nf 111,6", track: "NORMAL" }, { pk: 111600, type: "SIGNAL_CS", nom: "A 111,6", track: "CS" },
     { pk: 111500, type: "PN", nom: "PN 4" },
     { pk: 110200, type: "SIGNAL", nom: "Nf 302", track: "NORMAL" }, { pk: 110200, type: "SIGNAL_CS", nom: "Nf 304", track: "CS" },
     { pk: 108300, type: "GARE", nom: "CHINDRIEUX" },
     { pk: 108200, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 107400, type: "SIGNAL_CS", nom: "A 107,4", track: "CS" },
     { pk: 106500, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 106300, type: "SIGNAL_CS", nom: "Nf", track: "CS" },
     { pk: 105000, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 104400, type: "INFO", nom: "VIONS CHANAZ", track: "NORMAL" },
     { pk: 104200, type: "PN", nom: "PN 2" },
     { pk: 103600, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 103500, type: "SIGNAL_CS", nom: "A 103,5", track: "CS" },
-    { pk: 103100, type: "TIV_D", nom: "TIV 80" },
-    { pk: 102300, type: "VITESSE", nom: "Zone 80", limits: { MA100: 80 } },
+    { pk: 103100, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 80, MA90: 80, MA80: 80 } },
     { pk: 102100, type: "SIGNAL", nom: "Nf 314 + ID 1 feu", track: "NORMAL" }, { pk: 102100, type: "SIGNAL_CS", nom: "Nf 316", track: "CS" },
     { pk: 101800, type: "PN", nom: "PN 1" },
     { pk: 101300, type: "GARE", nom: "CULOZ" },
     { pk: 101000, type: "SIGNAL", nom: "Nf + TECS", track: "NORMAL" },
-    { pk: 100800, type: "VITESSE", nom: "Reprise 100", limits: { MA100: 100 } },
+    { pk: 100800, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 99800, type: "SIGNAL", nom: "Nf 106/108 + TECS", track: "NORMAL" },
     { pk: 99100, type: "PN", nom: "PN 61" },
     { pk: 98100, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 96600, type: "PN", nom: "PN 60" },
     { pk: 96300, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 94100, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 92200, type: "SIGNAL", nom: "S", track: "NORMAL" },
     { pk: 92000, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
-    { pk: 90500, type: "TIV_D", nom: "TIV 90" },
-    { pk: 89700, type: "SIGNAL", nom: "Nf 702 TECS", track: "NORMAL" },
+    { pk: 90500, type: "VITESSE", nom: "90", limits: { ME100: 90, MA100: 90, MA90: 90, MA80: 80 } },
     { pk: 89800, type: "GARE", nom: "VIRIEU LE GRAND" },
-    { pk: 88200, type: "SIGNAL", nom: "Nf 88,2", track: "NORMAL" },
-    { pk: 87200, type: "SIGNAL", nom: "Nf 87,2", track: "NORMAL" },
-    { pk: 87100, type: "TUNNEL", nom: "Tunnel Pugieu", length: 662 },
-    { pk: 86600, type: "TUNNEL", nom: "Tunnel Pugieu", length: 662 },
+    { pk: 87200, type: "TUNNEL_FIN", nom: "Sortie Pugieu" },
+    { pk: 86400, type: "TUNNEL_DEB", nom: "⬛ Tunnel Pugieu" },
     { pk: 85600, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 84300, type: "SIGNAL", nom: "Nf 84,3", track: "NORMAL" },
     { pk: 83100, type: "GARE", nom: "ROSSILLON" },
     { pk: 83000, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 81500, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
-    { pk: 79928, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
     { pk: 79780, type: "PN", nom: "PN 52" },
     { pk: 78100, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 76600, type: "TIV_D", nom: "TIV 90" },
     { pk: 76300, type: "SIGNAL", nom: "Nf 602", track: "NORMAL" },
     { pk: 76200, type: "PN", nom: "PN 50" },
-    { pk: 74980, type: "SIGNAL", nom: "Nf 74,9", track: "NORMAL" },
-    { pk: 73100, type: "SIGNAL", nom: "Nf 73,1", track: "NORMAL" },
     { pk: 71500, type: "PN", nom: "PN 48" },
-    { pk: 71376, type: "SIGNAL", nom: "Nf 1", track: "NORMAL" },
     { pk: 69400, type: "GARE", nom: "TENAY HAUTEVILLE" },
-    { pk: 69300, type: "SIGNAL", nom: "Nf 2", track: "NORMAL" },
     { pk: 67800, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 66400, type: "SIGNAL", nom: "F 66,3", track: "NORMAL" },
-    { pk: 65300, type: "TIV_D", nom: "TIV 90" },
     { pk: 64600, type: "SIGNAL", nom: "Nf 502", track: "NORMAL" },
     { pk: 62700, type: "GARE", nom: "ST RAMBERT EN BUGEY" },
-    { pk: 62500, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 62400, type: "PN", nom: "PN 43" },
-    { pk: 61800, type: "VITESSE", nom: "Reprise 100", limits: { MA100: 100, ME100: 100, MA90: 100, MA80: 80 } },
+    { pk: 61800, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 60600, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 59300, type: "PN", nom: "PN 41" },
     { pk: 58700, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 57200, type: "PN", nom: "PN 40" },
     { pk: 56100, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 54100, type: "SIGNAL", nom: "Nf 406", track: "NORMAL" },
-    { pk: 53750, type: "TIV_D", nom: "TIV Pointe 90" },
     { pk: 53170, type: "SIGNAL", nom: "Nf 11", track: "NORMAL" },
     { pk: 52100, type: "SIGNAL", nom: "Nf 60", track: "NORMAL" },
     { pk: 51400, type: "GARE", nom: "AMBERIEU" }
 ];
 
+// ============================================================
+// DONNÉES : AMBERIEU → CHAMBERY (sens IMPAIR, PK croissant)
+// ============================================================
 const dataChamberyAmberieuImpair = [
     { pk: 51400, type: "GARE", nom: "AMBERIEU" },
     { pk: 51800, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
     { pk: 52100, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
-    { pk: 53000, type: "VITESSE", nom: "V.100", limits: { MA100: 100, ME100: 100 } },
+    { pk: 53000, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 53450, type: "SIGNAL", nom: "Nf 403 + GIVRE + TIV 90", track: "NORMAL" },
     { pk: 55300, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 56100, type: "SIGNAL", nom: "F (V1)", track: "NORMAL" },
-    { pk: 57100, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 57200, type: "PN", nom: "PN 40" },
     { pk: 59100, type: "SIGNAL", nom: "Nf 59,1", track: "NORMAL" },
     { pk: 59300, type: "PN", nom: "PN 41" },
     { pk: 60700, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 62600, type: "VITESSE", nom: "V.90", limits: { MA100: 90, ME100: 90 } },
     { pk: 62250, type: "PN", nom: "PN 43" },
-    { pk: 62500, type: "SIGNAL", nom: "F", track: "NORMAL" },
+    { pk: 62600, type: "VITESSE", nom: "90", limits: { ME100: 90, MA100: 90, MA90: 90, MA80: 80 } },
     { pk: 62700, type: "GARE", nom: "ST RAMBERT EN BUGEY" },
-    { pk: 63000, type: "TIV_D", nom: "TIV 90 (Pointe)" },
     { pk: 63600, type: "SIGNAL", nom: "Nf 503 TECS", track: "NORMAL" },
     { pk: 64900, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 66500, type: "SIGNAL", nom: "F", track: "NORMAL" },
@@ -1286,7 +1443,6 @@ const dataChamberyAmberieuImpair = [
     { pk: 71400, type: "SIGNAL", nom: "Nf 71.4", track: "NORMAL" },
     { pk: 71500, type: "PN", nom: "PN 48" },
     { pk: 73100, type: "SIGNAL", nom: "Nf 73,1 (V1)", track: "NORMAL" },
-    { pk: 74600, type: "TIV_D", nom: "TIV 90 (Pointe)" },
     { pk: 75300, type: "SIGNAL", nom: "Nf 603 + TECS 90", track: "NORMAL" },
     { pk: 76200, type: "PN", nom: "PN 50" },
     { pk: 77500, type: "SIGNAL", nom: "Nf 77.5", track: "NORMAL" },
@@ -1296,27 +1452,24 @@ const dataChamberyAmberieuImpair = [
     { pk: 83100, type: "GARE", nom: "ROSSILLON" },
     { pk: 83300, type: "SIGNAL", nom: "Nf 83,3", track: "NORMAL" },
     { pk: 85300, type: "SIGNAL", nom: "Nf 85,3", track: "NORMAL" },
-    { pk: 86600, type: "TUNNEL", nom: "Tunnel Pugieu", length: 662 },
-    { pk: 87100, type: "TUNNEL", nom: "Tunnel Pugieu", length: 662 },
+    { pk: 87200, type: "TUNNEL_DEB", nom: "⬛ Tunnel Pugieu" },
+    { pk: 86400, type: "TUNNEL_FIN", nom: "Sortie Pugieu" },
     { pk: 87300, type: "SIGNAL", nom: "Nf 87,3", track: "NORMAL" },
-    { pk: 88100, type: "TIV_D", nom: "TIV 90 (Pointe)" },
     { pk: 88900, type: "SIGNAL", nom: "Nf 703 + TECS 90 (V1)", track: "NORMAL" },
     { pk: 89800, type: "GARE", nom: "VIRIEU LE GRAND" },
-    { pk: 91000, type: "VITESSE", nom: "V.100", limits: { MA100: 100, ME100: 100 } },
-    { pk: 90800, type: "SIGNAL", nom: "F", track: "NORMAL" },
+    { pk: 91000, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 92700, type: "SIGNAL", nom: "F (V1)", track: "NORMAL" },
     { pk: 95100, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 96600, type: "PN", nom: "PN 60" },
     { pk: 97000, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 99000, type: "SIGNAL", nom: "Nf 103 TIDD", track: "NORMAL" },
     { pk: 99100, type: "PN", nom: "PN 61" },
-    { pk: 99300, type: "TIV_D", nom: "TIV 80 (Pointe)" },
-    { pk: 99600, type: "VITESSE", nom: "Zone 80", limits: { MA100: 80, ME100: 80 } },
+    { pk: 99600, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 80, MA90: 80, MA80: 80 } },
     { pk: 100500, type: "SIGNAL", nom: "Nf 205 ID 2 feux", track: "NORMAL" },
     { pk: 101300, type: "GARE", nom: "CULOZ" },
     { pk: 101500, type: "SIGNAL", nom: "Nf 301/307 TECS TIDD", track: "NORMAL" },
     { pk: 101800, type: "PN", nom: "PN 1" },
-    { pk: 102100, type: "VITESSE", nom: "Reprise 100", limits: { MA100: 100, ME100: 100 } },
+    { pk: 102100, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 103000, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 104380, type: "PN", nom: "PN 2" },
     { pk: 104400, type: "GARE", nom: "VIONZ CHANAZ" },
@@ -1327,19 +1480,20 @@ const dataChamberyAmberieuImpair = [
     { pk: 109800, type: "SIGNAL", nom: "Nf 301 + TECS (V1)", track: "NORMAL" },
     { pk: 111200, type: "SIGNAL", nom: "Nf 111,2", track: "NORMAL" },
     { pk: 111400, type: "PN", nom: "PN 4" },
-    { pk: 112400, type: "TUNNEL", nom: "Tunnel du Gd Rocher", length: 411 },
+    { pk: 112000, type: "TUNNEL_DEB", nom: "⬛ Galerie Grand Rocher" },
+    { pk: 112500, type: "TUNNEL_FIN", nom: "Sortie Grand Rocher" },
     { pk: 113000, type: "SIGNAL", nom: "Nf 113", track: "NORMAL" },
     { pk: 113400, type: "PN", nom: "PN 5" },
-    { pk: 113800, type: "TUNNEL", nom: "Tunnel Brison", length: 375 },
+    { pk: 113900, type: "TUNNEL_DEB", nom: "⬛ Tunnel Brison" },
+    { pk: 113500, type: "TUNNEL_FIN", nom: "Sortie Brison" },
     { pk: 114000, type: "PN", nom: "PN 6" },
     { pk: 114610, type: "PN", nom: "PN 7" },
     { pk: 114700, type: "SIGNAL", nom: "Nf 114,7", track: "NORMAL" },
-    { pk: 115200, type: "TUNNEL", nom: "Tunnel Colombière", length: 1193 },
-    { pk: 115700, type: "TUNNEL", nom: "Tunnel Colombière", length: 1193 },
-    { pk: 116200, type: "TUNNEL", nom: "Tunnel Colombière", length: 1193 },
-    { pk: 116400, type: "VITESSE", nom: "Zone 80", limits: { MA100: 80, ME100: 80 } },
+    { pk: 115200, type: "TUNNEL_DEB", nom: "⬛ Tunnel Colombière" },
+    { pk: 116400, type: "TUNNEL_FIN", nom: "Sortie Colombière" },
+    { pk: 116400, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 80, MA90: 80, MA80: 80 } },
     { pk: 116600, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 118300, type: "VITESSE", nom: "Reprise 100", limits: { MA100: 100, ME100: 100 } },
+    { pk: 118300, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 118400, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 119700, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 120800, type: "PN", nom: "PN 10" },
@@ -1351,7 +1505,9 @@ const dataChamberyAmberieuImpair = [
     { pk: 123600, type: "GARE", nom: "AIX LES BAINS" },
     { pk: 123800, type: "SIGNAL", nom: "Nf 511/509/507/505/503", track: "NORMAL" },
     { pk: 123900, type: "PN", nom: "PN 15" },
+    { pk: 124380, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 80, MA90: 80, MA80: 80 } },
     { pk: 125000, type: "SIGNAL", nom: "Nf 535/533/531", track: "NORMAL" },
+    { pk: 125500, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 126300, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 128200, type: "GARE", nom: "VIVIERS DU LAC" },
     { pk: 128400, type: "SIGNAL", nom: "F", track: "NORMAL" },
@@ -1360,11 +1516,346 @@ const dataChamberyAmberieuImpair = [
     { pk: 133600, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 134300, type: "PN", nom: "PN 24" },
     { pk: 135100, type: "SIGNAL", nom: "F", track: "NORMAL" },
-    { pk: 135900, type: "TIV_D", nom: "TIV 60 (Pointe)" },
     { pk: 136450, type: "SIGNAL", nom: "Nf 107", track: "NORMAL" },
     { pk: 137000, type: "SIGNAL", nom: "Nf 205", track: "NORMAL" },
     { pk: 137600, type: "GARE", nom: "CHAMBERY" }
 ];
+
+
+// ============================================================
+// RT 5077 — ALV/PBM — Albertville → Pomblière St Marcel
+// Source exacte : PDF CODELI RT5077_04 + notes conducteur
+// Vitesses ligne banalisée : ME100/HLP = 80, MA100 = 70
+// Zones gare signalées par signaux terrain : pas de hachurages rouges
+// Direction IMPAIR, PK locaux (0 = Bif StPierre à PK 162,381)
+// NOTA: PK sur cette ligne = distance depuis Albertville (PK 23,625 ligne principale)
+// Les PK locaux ici sont ceux du CODELI (PK depuis Albertville)
+// ============================================================
+
+// SENS ALLER : Albertville (PK 23,625) → Pomblière (PK 57,229)
+// Direction d'affichage IMPAIR (PK croissant)
+
+// ============================================================
+// RT 5077 — BIF_SAINTPIERRE_PBM
+// St Pierre d'Albigny (PK 0 local / PK 162,381 LGV) → Pomblière (PK 57,229)
+// via Albertville (PK 23,625)
+// Source: PDF01 (ALV→SPA), PDF04 (ALV→BSM), images notes conducteur
+// Vitesses: ME100/HLP=80, MA100=70, MA90=70, MA80=70 (banalisée)
+// Direction IMPAIR (PK croissant 0→57,229). Pas de zones rouges.
+// ============================================================
+// ============================================================
+// RT 5077 — 4 LIGNES TARENTAISE
+// PK LOCAUX: 0 = Bif St Pierre / 23,625 = Albertville / 57,229 = PBM
+//
+// VITESSES (banalisée):
+//   SPA→ALV et ALV→SPA :
+//     ME100/HLP = 80, MA100 = 70, MA90 = 70, MA80 = 70
+//   ALV→PBM :
+//     ME100/HLP = 80 jusqu'à AIG (49,473), puis 70
+//     MA100 = 70 tout le long
+//   PBM→ALV :
+//     ME100/HLP = 70 de PBM à MOS (51,659), puis 80 jusqu'à ALV
+//     MA100 = 70 tout le long
+// ============================================================
+
+// ============================================================
+// LIGNE 1 : SPA_ALV — Bif St Pierre → Albertville
+// PK locaux 0 → 23,625 (direction IMPAIR, PK croissant)
+// Source: PDF notes conducteur pages 1 et 2
+// ============================================================
+const dataSPA_ALV = [
+    { pk: 0,      type: "GARE",   nom: "ST PIERRE D'ALBIGNY (Bif)" },
+    { pk: 2800,   type: "SIGNAL", nom: "Nf 601" },
+    { pk: 3500,   type: "PN",     nom: "PN 1" },
+    { pk: 6200,   type: "PN",     nom: "PN 2" },
+    { pk: 6300,   type: "PN",     nom: "PN 3" },
+    { pk: 7400,   type: "PN",     nom: "PN 4" },
+    { pk: 7900,   type: "SIGNAL", nom: "A (panneau circulaire)" },
+    { pk: 8900,   type: "SIGNAL", nom: "Nf 441" },
+    { pk: 9200,   type: "PN",     nom: "PN 5" },
+    { pk: 9600,   type: "GARE",   nom: "GRÉSY-SUR-ISÈRE" },
+    { pk: 9870,   type: "SIGNAL", nom: "Nf 455 / Nf 453" },
+    { pk: 9800,   type: "PN",     nom: "PN 6" },
+    { pk: 12800,  type: "PN",     nom: "PN 7" },
+    { pk: 14000,  type: "PN",     nom: "PN 8" },
+    { pk: 14100,  type: "SIGNAL", nom: "A (panneau circulaire)" },
+    { pk: 15200,  type: "SIGNAL", nom: "Nf 471" },
+    { pk: 15800,  type: "GARE",   nom: "FRONTENEX" },
+    { pk: 15900,  type: "SIGNAL", nom: "Nf 485 / Nf 483" },
+    { pk: 16000,  type: "PN",     nom: "PN 10" },
+    { pk: 16500,  type: "PN",     nom: "PN 12" },
+    { pk: 18200,  type: "PN",     nom: "PN 15" },
+    { pk: 18500,  type: "INFO",   nom: "S" },
+    { pk: 18800,  type: "PN",     nom: "PN 16 (non gardé)" },
+    { pk: 20600,  type: "PN",     nom: "PN 18" },
+    { pk: 21100,  type: "SIGNAL", nom: "A (panneau circulaire en vert)" },
+    { pk: 21700,  type: "PN",     nom: "PN 20" },
+    { pk: 22300,  type: "SIGNAL", nom: "Nf 13" },
+    { pk: 22400,  type: "PN",     nom: "PN 21" },
+    { pk: 22800,  type: "SIGNAL", nom: "Nf 15" },
+    { pk: 23000,  type: "PN",     nom: "PN 23" },
+    { pk: 23625,  type: "GARE",   nom: "ALBERTVILLE" },
+    { pk: 24000,  type: "SIGNAL", nom: "Nf fin de quai" },
+];
+
+// ============================================================
+// LIGNE 2 : ALV_SPA — Albertville → Bif St Pierre
+// PK locaux 23,625 → 0 (direction PAIR, PK décroissant)
+// Source: PDF notes conducteur pages 3 et 4
+// ============================================================
+const dataALV_SPA = [
+    { pk: 23625,  type: "GARE",   nom: "ALBERTVILLE" },
+    { pk: 23200,  type: "SIGNAL", nom: "Nf fin de quai — ID 2 feux" },
+    { pk: 22400,  type: "SIGNAL", nom: "Nf 20" },
+    { pk: 22200,  type: "PN",     nom: "PN 21" },
+    { pk: 21700,  type: "PN",     nom: "PN 20" },
+    { pk: 20600,  type: "PN",     nom: "PN 18" },
+    { pk: 18500,  type: "INFO",   nom: "S" },
+    { pk: 18200,  type: "PN",     nom: "PN 15" },
+    { pk: 17900,  type: "SIGNAL", nom: "A (panneau circulaire)" },
+    { pk: 16600,  type: "SIGNAL", nom: "Nf 486" },
+    { pk: 16000,  type: "PN",     nom: "PN 10" },
+    { pk: 15800,  type: "GARE",   nom: "FRONTENEX" },
+    { pk: 15500,  type: "SIGNAL", nom: "Nf 672 / Nf 674" },
+    { pk: 14000,  type: "PN",     nom: "PN 8" },
+    { pk: 12800,  type: "PN",     nom: "PN 7" },
+    { pk: 11000,  type: "SIGNAL", nom: "A (panneau circulaire)" },
+    { pk: 9900,   type: "SIGNAL", nom: "Nf 456" },
+    { pk: 9800,   type: "PN",     nom: "PN 6" },
+    { pk: 9600,   type: "GARE",   nom: "GRÉSY-SUR-ISÈRE" },
+    { pk: 9300,   type: "SIGNAL", nom: "Nf 442 / Nf 444" },
+    { pk: 9200,   type: "PN",     nom: "PN 5" },
+    { pk: 7400,   type: "PN",     nom: "PN 4" },
+    { pk: 6830,   type: "PN",     nom: "PN 3" },
+    { pk: 6200,   type: "PN",     nom: "PN 2" },
+    { pk: 3500,   type: "PN",     nom: "PN 1" },
+    { pk: 3100,   type: "SIGNAL", nom: "A (panneau circulaire)" },
+    { pk: 3000,   type: "INFO",   nom: "TIV pointe 60" },
+    { pk: 2100,   type: "SIGNAL", nom: "Nf 178" },
+    { pk: 163100, type: "SIGNAL", nom: "Nf 164 / Nf 166" },   // PK absolu ligne principale
+    { pk: 162300, type: "GARE",   nom: "ST PIERRE D'ALBIGNY (Bif)" },
+];
+
+// ============================================================
+// LIGNE 3 : ALV_PBM — Albertville → Pomblière
+// PK locaux 23,625 → 57,229 (direction IMPAIR, PK croissant)
+// Source: Image 2 (ALV/PBM)
+// Vitesses: HLP/ME100: 80 jusqu'à AIG (49,473) puis 70 / MA100: 70 tout le long
+// ============================================================
+const dataALV_PBM = [
+    { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
+    // Signaux entrée/sortie ALV côté PBM (image2: 23,7 bas de la feuille)
+    { pk: 23700,  type: "SIGNAL", nom: "Nf Cv 36 // Nf Cv 38 — ID 1 feu" },
+    { pk: 24100,  type: "INFO",   nom: "GSM-R Canal 2" },
+    { pk: 23900,  type: "PN",     nom: "PN 23" },
+    { pk: 24400,  type: "SIGNAL", nom: "Nf 22" },
+    { pk: 24500,  type: "PN",     nom: "PN 24" },
+    { pk: 24800,  type: "PN",     nom: "PN 25" },
+    { pk: 25100,  type: "PN",     nom: "PN 26 — Repère changement pantos" },
+    { pk: 25100,  type: "INFO",   nom: "⚡ Changement pantos !!!" },
+    { pk: 25400,  type: "INFO",   nom: "⬆️ Levez pantos !!! Pancarte Z repère" },
+    { pk: 25600,  type: "PN",     nom: "PN 27" },
+    { pk: 26300,  type: "SIGNAL", nom: "Nf 18" },
+    { pk: 26400,  type: "PN",     nom: "PN 29" },
+    { pk: 26500,  type: "PN",     nom: "PN 30" },
+    { pk: 26800,  type: "SIGNAL", nom: "Nf 9" },
+    { pk: 26900,  type: "PN",     nom: "PN 31" },
+    { pk: 27300,  type: "INFO",   nom: "TIV POINTE 90" },
+    { pk: 27400,  type: "PN",     nom: "PN 32" },
+    { pk: 27900,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 28000,  type: "PN",     nom: "PN 33 ou 34" },
+    { pk: 29600,  type: "PN",     nom: "PN 35" },
+    { pk: 30400,  type: "PN",     nom: "PN 36" },
+    { pk: 30500,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 30900,  type: "PN",     nom: "PN 37" },
+    { pk: 31800,  type: "SIGNAL", nom: "Nf 511" },
+    { pk: 31900,  type: "PN",     nom: "PN 38" },
+    // === LA BATHIE (LHI) PK 32 ===
+    { pk: 32000,  type: "SIGNAL", nom: "V.ev Nf 523 // Nf 525" },
+    { pk: 32000,  type: "GARE",   nom: "LA BATHIE (LHI)" },
+    // Galerie d'Arbine ~PK 34,5
+    { pk: 34500,  type: "TUNNEL_DEB", nom: "⬛ Galerie d'Arbine (30m)" },
+    { pk: 34530,  type: "TUNNEL_FIN", nom: "Sortie Galerie d'Arbine" },
+    { pk: 34800,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 34900,  type: "PN",     nom: "PN 39" },
+    { pk: 33400,  type: "PN",     nom: "PN 40" },
+    { pk: 33100,  type: "SIGNAL", nom: "Nf 526" },
+    { pk: 32900,  type: "PN",     nom: "PN 39" },
+    { pk: 34900,  type: "PN",     nom: "PN 41" },
+    { pk: 35800,  type: "SIGNAL", nom: "Nf 531" },
+    // === CEVINS (CEI) PK 36,8 ===
+    { pk: 36900,  type: "SIGNAL", nom: "V.ev Nf 545 // Nf 543" },
+    { pk: 36800,  type: "GARE",   nom: "CEVINS (CEI)" },
+    { pk: 37000,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de Cevins" },
+    { pk: 37150,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Cevins" },
+    { pk: 37200,  type: "PN",     nom: "PN 42" },
+    { pk: 37300,  type: "SIGNAL", nom: "Nf 546" },
+    { pk: 38800,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 39600,  type: "PN",     nom: "PN 45" },
+    { pk: 39700,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Côtes (313m)" },
+    { pk: 40010,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Côtes" },
+    { pk: 40200,  type: "PN",     nom: "PN 46" },
+    // === NOTRE-DAME-DE-BRIANÇON (NAB) PK 43,6 ===
+    { pk: 43700,  type: "SIGNAL", nom: "V.ev Nf 565 // Nf 563" },
+    { pk: 43600,  type: "GARE",   nom: "NOTRE-DAME-DE-BRIANÇON (NAB)" },
+    { pk: 42600,  type: "SIGNAL", nom: "Nf 551" },
+    { pk: 41700,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 43800,  type: "PN",     nom: "PN 48" },
+    { pk: 44100,  type: "SIGNAL", nom: "Nf 566" },
+    { pk: 44300,  type: "TUNNEL_DEB", nom: "⬛ Souterrain du Champs du Comte (532m) ⚠️ mauvaise aération" },
+    { pk: 44832,  type: "TUNNEL_FIN", nom: "Sortie Champs du Comte" },
+    { pk: 45400,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 45900,  type: "PN",     nom: "PN 51" },
+    // === PETIT-CŒUR / LA LÈCHÈRE (P.Cœur) PK 46 ===
+    { pk: 46000,  type: "GARE",   nom: "PETIT-CŒUR / LA LÈCHÈRE" },
+    { pk: 46000,  type: "INFO",   nom: "Ep Bozel" },
+    { pk: 47600,  type: "PN",     nom: "PN 52" },
+    // === AIGUEBLANCHE (AIG) PK 49 ===
+    { pk: 48200,  type: "INFO",   nom: "⚡ COUPEZ COURANT !!!" },
+    { pk: 49000,  type: "SIGNAL", nom: "V.ev Nf 595 // Nf 593" },
+    { pk: 49000,  type: "GARE",   nom: "AIGUEBLANCHE (AIG)" },
+    // Changement vitesse: ME100/HLP passe de 80 à 70 ici
+    { pk: 49000,  type: "VITESSE", nom: "70", limits: { ME100: 70, MA100: 70, MA90: 70, MA80: 70 } },
+    { pk: 49600,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération" },
+    // === MOÛTIERS-SALINS (MOS) PK 51,6 ===
+    { pk: 51100,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Esserts" },
+    { pk: 51200,  type: "SIGNAL", nom: "Nf 611" },
+    { pk: 51200,  type: "INFO",   nom: "Dans tunnel — Nf 611" },
+    { pk: 51200,  type: "INFO",   nom: "Fin de quai" },
+    { pk: 51400,  type: "SIGNAL", nom: "A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653" },
+    { pk: 51600,  type: "GARE",   nom: "MOÛTIERS-SALINS BRIDES (MOS)" },
+    { pk: 52000,  type: "PN",     nom: "PN 54" },
+    { pk: 52200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 1 (197m)" },
+    { pk: 52400,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 1" },
+    { pk: 52400,  type: "INFO",   nom: "Fin tunnel" },
+    { pk: 52500,  type: "SIGNAL", nom: "GA 669" },
+    { pk: 52800,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Boucle (1400m)" },
+    { pk: 54200,  type: "TUNNEL_FIN", nom: "Sortie Boucle" },
+    { pk: 54100,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 2 (240m)" },
+    { pk: 54340,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 2" },
+    { pk: 54500,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 54500,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Saucette (710m)" },
+    { pk: 55200,  type: "TUNNEL_FIN", nom: "Sortie Saucette" },
+    { pk: 55900,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de PBM (165m)" },
+    { pk: 56065,  type: "TUNNEL_FIN", nom: "Sortie Souterrain PBM" },
+    { pk: 56800,  type: "SIGNAL", nom: "Nf 711" },
+    // === POMBLIÈRE-ST-MARCEL (PBM) PK 57,2 ===
+    { pk: 57200,  type: "PN",     nom: "PN 57" },
+    { pk: 57500,  type: "SIGNAL", nom: "V.ev Nf 725 // Nf 723" },
+    { pk: 57229,  type: "GARE",   nom: "POMBLIÈRE-ST-MARCEL (PBM)" },
+    { pk: 57229,  type: "INFO",   nom: "GSM-R Canal 2" },
+];
+
+// ============================================================
+// LIGNE 4 : PBM_ALV — Pomblière → Albertville
+// PK locaux 57,229 → 23,625 (direction PAIR, PK décroissant)
+// Source: Image 1 (PBM/ALV)
+// Vitesses: HLP/ME100: 70 de PBM à MOS (51,6) puis 80 jusqu'à ALV
+//           MA100: 70 tout le long
+// ============================================================
+const dataPBM_ALV = [
+    // === POMBLIÈRE-ST-MARCEL (PBM) PK 57,2 ===
+    { pk: 57229,  type: "GARE",   nom: "POMBLIÈRE-ST-MARCEL (PBM)" },
+    { pk: 57229,  type: "INFO",   nom: "GSM-R Canal 2" },
+    { pk: 57100,  type: "SIGNAL", nom: "Nf 712 // V.ev Nf 714" },
+    { pk: 57000,  type: "PN",     nom: "PN 57" },
+    { pk: 56200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de PBM (165m)" },
+    { pk: 56035,  type: "TUNNEL_FIN", nom: "Sortie Souterrain PBM" },
+    { pk: 55200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Saucette (710m)" },
+    { pk: 54490,  type: "TUNNEL_FIN", nom: "Sortie Saucette" },
+    { pk: 54500,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 2 (240m)" },
+    { pk: 54260,  type: "TUNNEL_FIN", nom: "Sortie Cordeliers 2" },
+    { pk: 53900,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 53800,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de la Boucle (1400m)" },
+    { pk: 52400,  type: "TUNNEL_FIN", nom: "Sortie Boucle" },
+    { pk: 52400,  type: "SIGNAL", nom: "Nf 666" },
+    { pk: 52400,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Cordeliers 1 (197m)" },
+    { pk: 52200,  type: "TUNNEL_FIN", nom: "Fin Tunnel / Sortie Cordeliers 1" },
+    // === MOÛTIERS-SALINS (MOS) PK 51,6 ===
+    { pk: 52000,  type: "SIGNAL", nom: "E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620" },
+    { pk: 51600,  type: "INFO",   nom: "Fin de quai / Entrée gare" },
+    { pk: 51600,  type: "GARE",   nom: "MOÛTIERS-SALINS BRIDES (MOS)" },
+    { pk: 51600,  type: "PN",     nom: "PN 54" },
+    // Changement vitesse ME100/HLP: 70 → 80 à partir de MOS direction ALV
+    { pk: 51600,  type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 70, MA90: 70, MA80: 70 } },
+    { pk: 51200,  type: "SIGNAL", nom: "Nf 596" },
+    { pk: 51200,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération" },
+    { pk: 49700,  type: "TUNNEL_FIN", nom: "Fin Tunnel Esserts" },
+    // === AIGUEBLANCHE (AIG) PK 49 ===
+    { pk: 49500,  type: "INFO",   nom: "Fin de quai AIG" },
+    { pk: 49000,  type: "GARE",   nom: "AIGUEBLANCHE (AIG)" },
+    { pk: 49000,  type: "SIGNAL", nom: "Nf 582 // V.ev Nf 584" },
+    { pk: 48400,  type: "INFO",   nom: "⚡ COUPEZ COURANT !!!" },
+    { pk: 47800,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 47600,  type: "PN",     nom: "PN 52" },
+    { pk: 46000,  type: "INFO",   nom: "Ep Bozel" },
+    { pk: 45900,  type: "PN",     nom: "PN 51" },
+    // === PETIT-CŒUR / LA LÈCHÈRE (P.Cœur) PK 46 ===
+    { pk: 46000,  type: "GARE",   nom: "PETIT-CŒUR / LA LÈCHÈRE" },
+    // Souterrain Champs du Comte
+    { pk: 45400,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 44300,  type: "TUNNEL_DEB", nom: "⬛ Souterrain du Champs du Comte (532m) ⚠️ mauvaise aération" },
+    { pk: 43768,  type: "TUNNEL_FIN", nom: "Sortie Champs du Comte" },
+    // === NOTRE-DAME-DE-BRIANÇON (NAB) PK 43,6 ===
+    { pk: 43300,  type: "SIGNAL", nom: "Nf 552 // V.ev Nf 554" },
+    { pk: 43600,  type: "GARE",   nom: "NOTRE-DAME-DE-BRIANÇON (NAB)" },
+    { pk: 43800,  type: "PN",     nom: "PN 48" },
+    { pk: 44100,  type: "SIGNAL", nom: "Nf 566" },
+    { pk: 41700,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 40200,  type: "PN",     nom: "PN 46" },
+    { pk: 40100,  type: "TUNNEL_DEB", nom: "⬛ Souterrain des Côtes (313m)" },
+    { pk: 39787,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Côtes" },
+    { pk: 39600,  type: "PN",     nom: "PN 45" },
+    { pk: 38800,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 37300,  type: "SIGNAL", nom: "Nf 546" },
+    { pk: 37200,  type: "PN",     nom: "PN 42" },
+    { pk: 37000,  type: "TUNNEL_DEB", nom: "⬛ Souterrain de Cevins" },
+    { pk: 36850,  type: "TUNNEL_FIN", nom: "Sortie Souterrain Cevins" },
+    // === CEVINS (CEI) PK 36,8 ===
+    { pk: 36300,  type: "SIGNAL", nom: "Nf 532 // V.ev Nf 534" },
+    { pk: 36800,  type: "GARE",   nom: "CEVINS (CEI)" },
+    { pk: 35800,  type: "SIGNAL", nom: "Nf 531" },
+    { pk: 34900,  type: "PN",     nom: "PN 41" },
+    { pk: 34500,  type: "SIGNAL", nom: "Panneau circulaire" },
+    // Galerie d'Arbine
+    { pk: 34500,  type: "TUNNEL_DEB", nom: "⬛ Galerie d'Arbine (30m)" },
+    { pk: 34470,  type: "TUNNEL_FIN", nom: "Sortie Galerie d'Arbine" },
+    { pk: 33400,  type: "PN",     nom: "PN 40" },
+    { pk: 33100,  type: "SIGNAL", nom: "Nf 526" },
+    { pk: 32900,  type: "PN",     nom: "PN 39" },
+    // === LA BATHIE (LHI) PK 32 ===
+    { pk: 32000,  type: "SIGNAL", nom: "V.ev Nf 512 // Nf 514" },
+    { pk: 32000,  type: "GARE",   nom: "LA BATHIE (LHI)" },
+    { pk: 31900,  type: "PN",     nom: "PN 38" },
+    { pk: 31800,  type: "SIGNAL", nom: "Nf 511" },
+    { pk: 30900,  type: "PN",     nom: "PN 37" },
+    { pk: 30500,  type: "SIGNAL", nom: "Panneau circulaire" },
+    { pk: 30400,  type: "PN",     nom: "PN 36" },
+    { pk: 29600,  type: "PN",     nom: "PN 35" },
+    { pk: 28000,  type: "PN",     nom: "PN 33 ou 34" },
+    { pk: 27400,  type: "PN",     nom: "PN 32" },
+    { pk: 27300,  type: "INFO",   nom: "TIV POINTE 90" },
+    { pk: 26900,  type: "PN",     nom: "PN 31" },
+    { pk: 26800,  type: "SIGNAL", nom: "Nf 9" },
+    { pk: 26500,  type: "PN",     nom: "PN 30" },
+    { pk: 26300,  type: "PN",     nom: "PN 29" },
+    { pk: 25800,  type: "INFO",   nom: "⬇️ Baissez pantos !!! Pancarte Z repère" },
+    { pk: 25600,  type: "PN",     nom: "PN 27" },
+    { pk: 26300,  type: "SIGNAL", nom: "Nf 18" },
+    { pk: 25100,  type: "PN",     nom: "PN 26 — Repère changement pantos" },
+    { pk: 25400,  type: "INFO",   nom: "⚡ Changement pantos !!!" },
+    { pk: 24800,  type: "PN",     nom: "PN 25" },
+    { pk: 24600,  type: "SIGNAL", nom: "Nf 11" },
+    { pk: 24500,  type: "PN",     nom: "PN 24" },
+    { pk: 24300,  type: "INFO",   nom: "GSM-R Canal 1" },
+    { pk: 24400,  type: "SIGNAL", nom: "Nf 22" },
+    { pk: 23900,  type: "PN",     nom: "PN 23" },
+    { pk: 23700,  type: "SIGNAL", nom: "Nf Cv 36 // Nf Cv 38 — ID 1 feu" },
+    { pk: 23600,  type: "INFO",   nom: "Attention fin Voie 3 Nf Cv 67" },
+    // === ALBERTVILLE PK 23,6 ===
+    { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
+];
+
 </script>
 
 </body>
