@@ -196,7 +196,14 @@ white-space: nowrap;
 .edit-obj-actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-edit-save { flex: 2; padding: 14px; background: var(–accent-blue); border: none; color: black; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
 .btn-edit-cancel { flex: 1; padding: 14px; background: rgba(255,255,255,0.07); border: 1px solid #555; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 15px; touch-action: manipulation; }
-.track-obj.long-press-anim .obj-card { transition: box-shadow 0.5s, border-color 0.5s; box-shadow: 0 0 0 3px var(–accent-orange); border-color: #ffa502 !important; }
+.tunnel-partner-info { background: rgba(139,99,71,0.15); border: 1px solid #8B6347; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
+.tunnel-partner-label { color: #c49a6c; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
+.tunnel-sync-row { display: flex; align-items: center; gap: 8px; color: #a4b0be; font-size: 12px; cursor: pointer; }
+.tunnel-sync-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.speed-with-adj { display: flex; align-items: center; gap: 6px; }
+.btn-gps-adj { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,165,2,0.2); border: 2px solid #ffa502; color: #ffa502; font-size: 18px; font-weight: 900; cursor: pointer; touch-action: manipulation; display: flex; justify-content: center; align-items: center; line-height: 1; padding: 0; }
+.btn-gps-adj:active { background: rgba(255,165,2,0.5); transform: scale(0.92); }
+.speed-group.gps-lost-mode .hud-value.speed { color: #ffa502; }
 </style>
 
 </head>
@@ -232,9 +239,9 @@ white-space: nowrap;
     <div class="track-line"></div>
     <div id="trainCursor" class="train-cursor"></div>
     <div class="pk-calib-container">
-        <button class="btn-calib" onclick="window.adjustPk(-25)">-</button>
+        <button class="btn-calib" onclick="window.adjustPk(-10)">-</button>
         <div class="train-pk-label" id="currentPkDisplay">PK ---</div>
-        <button class="btn-calib" onclick="window.adjustPk(25)">+</button>
+        <button class="btn-calib" onclick="window.adjustPk(10)">+</button>
     </div>
     <div id="objectsContainer"></div>
 </div>
@@ -265,7 +272,11 @@ white-space: nowrap;
         <button id="btnStop" class="btn-stop" onclick="window.toggleStop()">STOP</button>
         <div class="hud-group speed-group">
             <span class="hud-label">VITESSE</span>
-            <span class="hud-value speed" id="speedDisplay">---</span>
+            <div class="speed-with-adj">
+                <button class="btn-gps-adj hidden" id="btnGpsAdjMinus" onclick="window.gpsAdjSpeed(-5)" style="display:none">−</button>
+                <span class="hud-value speed" id="speedDisplay">---</span>
+                <button class="btn-gps-adj hidden" id="btnGpsAdjPlus" onclick="window.gpsAdjSpeed(+5)" style="display:none">+</button>
+            </div>
         </div>
         <button class="btn-alert" onclick="window.signalIncident()">⚠️</button>
     </div>
@@ -281,6 +292,7 @@ white-space: nowrap;
         </div>
     </div>
 </div>
+
 
 <div id="modalConfig" class="settings-overlay hidden">
     <div class="glass-panel settings-box">
@@ -360,6 +372,14 @@ white-space: nowrap;
             <label>PK (en km, ex: 137.300)</label>
             <input type="number" id="editObjPk" placeholder="137.300" step="0.001">
         </div>
+        <!-- Info partenaire tunnel (affiché seulement pour TUNNEL_DEB/FIN) -->
+        <div id="tunnelPartnerInfo" class="tunnel-partner-info hidden">
+            <div class="tunnel-partner-label" id="tunnelPartnerLabel">🔗 Partenaire : <span id="tunnelPartnerName">—</span> @ PK <span id="tunnelPartnerPk">—</span></div>
+            <label class="tunnel-sync-row">
+                <input type="checkbox" id="tunnelSyncNames" checked>
+                <span>Renommer aussi le partenaire (même nom)</span>
+            </label>
+        </div>
         <div class="edit-obj-actions">
             <button class="btn-edit-delete" onclick="window.deleteEditObj()">🗑 SUPPR</button>
             <button class="btn-edit-cancel" onclick="window.closeEditObj()">ANNULER</button>
@@ -413,6 +433,10 @@ let isGpsActive = true;
 let isPaused = false;
 let lastFrameTime = 0;
 let currentSpeedMs = 0;
+let lastKnownSpeedMs = 0;   // dernière vitesse GPS valide
+let gpsLostTimer = null;    // timeout avant passage en mode GPS perdu
+let isGpsLost = false;      // true = GPS perdu, on roule à lastKnownSpeedMs
+let manualSpeedMs = null;   // vitesse manuelle en mode GPS perdu (null = utilise lastKnownSpeedMs)
 let lastTouchY = 0;
 let activeData = [];
 let customOrders = [];
@@ -504,8 +528,35 @@ window.openEditObj = function(item) {
     editingItem = item;
     document.getElementById('editObjNom').value = item.nom || '';
     document.getElementById('editObjPk').value = (item.pk / 1000).toFixed(3);
+
+    // Afficher le partenaire si c'est un tunnel
+    var partnerInfoEl = document.getElementById('tunnelPartnerInfo');
+    if (item.type === 'TUNNEL_DEB' || item.type === 'TUNNEL_FIN') {
+        // Chercher le partenaire par nom identique et type opposé
+        var oppositeType = (item.type === 'TUNNEL_DEB') ? 'TUNNEL_FIN' : 'TUNNEL_DEB';
+        var partners = activeData.filter(function(i) { return i && i.type === oppositeType && i.nom === item.nom; });
+        var partner = partners.length > 0 ? partners.reduce(function(a,b) {
+            return Math.abs(a.pk - item.pk) < Math.abs(b.pk - item.pk) ? a : b;
+        }) : null;
+        if (partner) {
+            var roleLabel = (item.type === 'TUNNEL_DEB') ? '⬛ Début' : '⬜ Fin';
+            var partnerRole = (item.type === 'TUNNEL_DEB') ? '⬜ FIN' : '⬛ DEB';
+            document.getElementById('tunnelPartnerLabel').innerHTML =
+                roleLabel + ' lié à <b>' + partnerRole + '</b> &ldquo;' + partner.nom + '&rdquo; @ PK ' + (partner.pk/1000).toFixed(3);
+            partnerInfoEl.classList.remove('hidden');
+            partnerInfoEl._partner = partner;
+        } else {
+            document.getElementById('tunnelPartnerLabel').innerHTML = '⚠️ Aucun partenaire trouvé avec ce nom';
+            partnerInfoEl.classList.remove('hidden');
+            partnerInfoEl._partner = null;
+        }
+    } else {
+        partnerInfoEl.classList.add('hidden');
+        partnerInfoEl._partner = null;
+    }
+
     document.getElementById('modalEditObj').classList.remove('hidden');
-    setTimeout(() => document.getElementById('editObjNom').focus(), 100);
+    setTimeout(function() { document.getElementById('editObjNom').focus(); }, 100);
 };
 
 window.closeEditObj = function() {
@@ -593,21 +644,39 @@ window.saveEditObj = function() {
     let newPkVal = parseFloat(document.getElementById('editObjPk').value.replace(',', '.'));
     if (!newNom && isNaN(newPkVal)) { window.closeEditObj(); return; }
 
+    // Récupérer le partenaire tunnel avant modification
+    var partnerInfoEl = document.getElementById('tunnelPartnerInfo');
+    var partner = partnerInfoEl._partner || null;
+    var syncNames = document.getElementById('tunnelSyncNames').checked;
+    var oldNom = editingItem.nom;
+
     if (!editingItem._custom) {
-        // Bloc natif modifié : sauvegarder la clé d'origine AVANT modif
         let key = origKey(editingItem);
         if (!modifiedBlocs[currentLine]) modifiedBlocs[currentLine] = [];
-        // Retirer l'ancienne entrée si elle existait déjà
         modifiedBlocs[currentLine] = modifiedBlocs[currentLine].filter(m => m.origKey !== key);
-        // Appliquer les modifs
         if (newNom) editingItem.nom = newNom;
         if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
-        // Stocker la nouvelle version
         modifiedBlocs[currentLine].push({ origKey: key, pk: editingItem.pk, type: editingItem.type, nom: editingItem.nom });
     } else {
-        // Bloc custom : modifier directement
         if (newNom) editingItem.nom = newNom;
         if (!isNaN(newPkVal)) editingItem.pk = Math.round(newPkVal * 1000);
+    }
+
+    // Synchroniser le partenaire tunnel si demandé et si le nom a changé
+    if (partner && syncNames && newNom && newNom !== oldNom) {
+        if (!partner._custom) {
+            let pKey = origKey(partner);
+            if (!modifiedBlocs[currentLine]) modifiedBlocs[currentLine] = [];
+            modifiedBlocs[currentLine] = modifiedBlocs[currentLine].filter(m => m.origKey !== pKey);
+            partner.nom = newNom;
+            modifiedBlocs[currentLine].push({ origKey: pKey, pk: partner.pk, type: partner.type, nom: partner.nom });
+        } else {
+            partner.nom = newNom;
+        }
+        if (partner.el) {
+            var nameEl = partner.el.querySelector('.obj-name');
+            if (nameEl) nameEl.innerText = newNom;
+        }
     }
 
     let saved = editingItem;
@@ -615,7 +684,12 @@ window.saveEditObj = function() {
     refreshItemDisplay(saved);
     activeData.sort((a, b) => direction === 'IMPAIR' ? a.pk - b.pk : b.pk - a.pk);
     saveEditsToLS();
-    updateVisuals();
+    // Pour les tunnels : recalculer les liaisons visuelles
+    if (saved.type === 'TUNNEL_DEB' || saved.type === 'TUNNEL_FIN') {
+        initView();
+    } else {
+        updateVisuals();
+    }
 };
 
 function refreshItemDisplay(item) {
@@ -655,7 +729,7 @@ function calculateComplexSpeed() {
     customOrders.forEach(o => {
         let min = Math.min(o.pk, o.pkEnd);
         let max = Math.max(o.pk, o.pkEnd);
-        if (currentPk >= min && currentPk <= max) ltvLimit = o.limits.MA100;
+        if (currentPk >= min && currentPk <= max) ltvLimit = o.limits[currentTrainType] || o.limits.MA100;
     });
     if (ltvLimit !== null) return ltvLimit;
 
@@ -939,10 +1013,18 @@ window.adjustPk = function(amount) { currentPk += amount; updateVisuals(); };
 function gameLoop(timestamp) {
     let dt = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-    if (isGpsActive && !isPaused) {
-        if (Math.abs(currentSpeedMs) > 0.1) {
+    if (!isPaused) {
+        let speedToUse = 0;
+        if (isGpsActive && !isGpsLost) {
+            // Mode normal GPS
+            speedToUse = currentSpeedMs;
+        } else if (isGpsLost) {
+            // Mode GPS perdu : on roule à la vitesse manuelle ou à la dernière vitesse connue
+            speedToUse = (manualSpeedMs !== null) ? manualSpeedMs : lastKnownSpeedMs;
+        }
+        if (Math.abs(speedToUse) > 0.1) {
             let dirFactor = (direction === 'IMPAIR' ? 1 : -1);
-            currentPk += currentSpeedMs * dt * dirFactor;
+            currentPk += speedToUse * dt * dirFactor;
         }
     }
     updateVisuals();
@@ -958,7 +1040,9 @@ function updateVisuals() {
     let nearestItem = null; let minNextDist = Infinity; let nextStation = null; let minStDist = Infinity;
     let currentLimit = calculateComplexSpeed();
     domLimit.innerText = currentLimit;
-    let currentKmH = currentSpeedMs * 3.6;
+    let currentKmH = isGpsLost
+        ? Math.round((manualSpeedMs !== null ? manualSpeedMs : lastKnownSpeedMs) * 3.6)
+        : currentSpeedMs * 3.6;
     if (document.getElementById('speedDisplay')) {
         document.getElementById('speedDisplay').innerText = Math.round(currentKmH);
     }
@@ -1028,7 +1112,7 @@ function updateVisuals() {
         domEventName.innerHTML = nearestItem.nom;
         let distDisplay = "";
         if (minNextDist < 10000) { distDisplay = ` <span class="dist-badge">${Math.round(minNextDist)}m</span>`; }
-        domEventPk.innerHTML = (nearestItem.pk / 1000).toFixed(3) + distDisplay;
+        domEventPk.innerHTML = "PK " + (nearestItem.pk / 1000).toFixed(3) + distDisplay;
     } else { domEventName.innerText = "-"; domEventPk.innerText = ""; }
 }
 
@@ -1106,8 +1190,8 @@ function initView() {
         for (let i = 0; i < vitesseBlocs.length - 1; i++) {
             let v = vitesseBlocs[i];
             let vitesseVal = v.limits ? (v.limits[currentTrainType] || v.limits['MA100']) : parseInt(v.nom);
-            // Hachures seulement si cette zone est sous la vitesse max de la ligne
-            if (parseInt(vitesseVal) < parseInt(lineMaxSpeed)) {
+            // Hachures seulement si cette zone est à 80 ou moins (pas pour les zones 90)
+            if (parseInt(vitesseVal) <= 80) {
                 let z = document.createElement('div');
                 z.className = 'speed-zone';
                 // pkStart = pk de cette pancarte, pkEnd = pk de la pancarte suivante dans le sens de marche
@@ -1219,6 +1303,16 @@ function onGpsSuccess(pos) {
     let speed = pos.coords.speed;
     if (speed === null || speed < 0) speed = 0;
     currentSpeedMs = speed;
+    if (speed > 0.5) lastKnownSpeedMs = speed;
+    if (gpsLostTimer) { clearTimeout(gpsLostTimer); gpsLostTimer = null; }
+    if (isGpsLost) {
+        isGpsLost = false;
+        manualSpeedMs = null;
+        // Cacher les boutons +/- du HUD
+        document.getElementById('btnGpsAdjMinus').style.display = 'none';
+        document.getElementById('btnGpsAdjPlus').style.display = 'none';
+        document.querySelector('.speed-group').classList.remove('gps-lost-mode');
+    }
     if (isGpsActive && !isPaused) {
         document.getElementById('gpsStatus').className = "status-pill ok";
         document.getElementById('gpsStatus').innerText = "GPS ON";
@@ -1228,13 +1322,36 @@ function onGpsError(err) {
     if (isGpsActive) {
         document.getElementById('gpsStatus').className = "status-pill waiting";
         document.getElementById('gpsStatus').innerText = "SIGNAL...";
+        if (!gpsLostTimer && !isGpsLost) {
+            gpsLostTimer = setTimeout(function() {
+                isGpsLost = true;
+                gpsLostTimer = null;
+                if (manualSpeedMs === null) manualSpeedMs = lastKnownSpeedMs;
+                // Mettre à jour l'affichage vitesse
+                document.getElementById('speedDisplay').innerText = Math.round((manualSpeedMs || 0) * 3.6);
+                // Afficher les boutons +/- dans le HUD
+                document.getElementById('btnGpsAdjMinus').style.display = 'flex';
+                document.getElementById('btnGpsAdjPlus').style.display = 'flex';
+                document.querySelector('.speed-group').classList.add('gps-lost-mode');
+                document.getElementById('gpsStatus').className = "status-pill lost";
+                document.getElementById('gpsStatus').innerText = "TUNNEL";
+            }, 5000);
+        }
     }
 }
+
+window.gpsAdjSpeed = function(deltaKmh) {
+    if (!isGpsLost) return;
+    let currentKmh = Math.round((manualSpeedMs || 0) * 3.6);
+    currentKmh = Math.max(0, Math.min(200, currentKmh + deltaKmh));
+    manualSpeedMs = currentKmh / 3.6;
+    document.getElementById('speedDisplay').innerText = currentKmh;
+};
 
 // ============================================================
 // DONNÉES : CHAMBERY → MODANE (sens IMPAIR)
 // ============================================================
-const dataImpairBase = [
+let dataImpairBase = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" },
     { pk: 137600, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
     { pk: 138000, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
@@ -1354,7 +1471,7 @@ const dataImpairBase = [
 // ============================================================
 // DONNÉES : MODANE → CHAMBERY (sens PAIR)
 // ============================================================
-const dataPairBase = [
+let dataPairBase = [
     { pk: 220360, type: "GARE", nom: "ST MICHEL VALLOIRE" },
     { pk: 220000, type: "SIGNAL", nom: "C 260 VA / C 262 V2 TECS", track: "NORMAL" },
     { pk: 219000, type: "SIGNAL", nom: "Carré", track: "NORMAL" },
@@ -1469,9 +1586,9 @@ const dataPairBase = [
 // ============================================================
 // DONNÉES : CHAMBERY → AMBERIEU (sens PAIR, PK décroissant)
 // ============================================================
-const dataChamberyAmberieuPair = [
+let dataChamberyAmberieuPair = [
     { pk: 137600, type: "GARE", nom: "CHAMBERY" },
-    { pk: 137600, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 90, MA80: 80 } },
+    { pk: 137600, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 90, MA90: 90, MA80: 80 } },
     { pk: 135630, type: "PN", nom: "PN 24a", track: "NORMAL" },
     { pk: 135500, type: "SIGNAL", nom: "F", track: "NORMAL" },
     { pk: 134300, type: "PN", nom: "PN 24" },
@@ -1486,13 +1603,13 @@ const dataChamberyAmberieuPair = [
     { pk: 126800, type: "SIGNAL", nom: "F 126,8", track: "NORMAL" }, { pk: 126800, type: "SIGNAL_CS", nom: "A 126,8", track: "CS" },
     { pk: 125500, type: "SIGNAL", nom: "Nf 534", track: "NORMAL" }, { pk: 125500, type: "SIGNAL_CS", nom: "Nf 536 TSCS", track: "CS" },
     // Aix les Bains : TIV 80 avant gare, reprise 100 après
-    { pk: 124380, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 80, MA90: 80, MA80: 80 } },
+    { pk: 124380, type: "VITESSE", nom: "80", limits: { ME100: 80, MA100: 90, MA90: 80, MA80: 80 } },
     { pk: 124200, type: "SIGNAL", nom: "Nf 524 / Nf 526", track: "NORMAL" }, { pk: 124200, type: "SIGNAL_CS", nom: "Nf 528", track: "CS" },
     { pk: 123900, type: "PN", nom: "PN 15" },
     { pk: 123600, type: "GARE", nom: "AIX LES BAINS" },
     { pk: 123500, type: "SIGNAL", nom: "Nf + TECS + ID", track: "NORMAL" }, { pk: 123300, type: "SIGNAL_CS", nom: "Nf 434 TECS", track: "CS" },
     { pk: 123100, type: "SIGNAL", nom: "Nf 412 (V2) / Nf 408 (VC)", track: "NORMAL" },
-    { pk: 122800, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 100, MA90: 80, MA80: 80 } },
+    { pk: 122800, type: "VITESSE", nom: "100", limits: { ME100: 100, MA100: 90, MA90: 80, MA80: 80 } },
     { pk: 122500, type: "PN", nom: "PN 13" },
     { pk: 122000, type: "PN", nom: "PN 12" },
     { pk: 121300, type: "SIGNAL", nom: "F", track: "NORMAL" },
@@ -1568,7 +1685,7 @@ const dataChamberyAmberieuPair = [
 // ============================================================
 // DONNÉES : AMBERIEU → CHAMBERY (sens IMPAIR, PK croissant)
 // ============================================================
-const dataChamberyAmberieuImpair = [
+let dataChamberyAmberieuImpair = [
     { pk: 51400, type: "GARE", nom: "AMBERIEU" },
     { pk: 51800, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
     { pk: 52100, type: "SIGNAL", nom: "Nf", track: "NORMAL" },
@@ -1712,7 +1829,7 @@ const dataChamberyAmberieuImpair = [
 // PK locaux 0 → 23,625 (direction IMPAIR, PK croissant)
 // Source: PDF notes conducteur pages 1 et 2
 // ============================================================
-const dataSPA_ALV = [
+let dataSPA_ALV = [
     { pk: 0,      type: "GARE",   nom: "ST PIERRE D'ALBIGNY (Bif)" },
     { pk: 2800,   type: "SIGNAL", nom: "Nf 401" },
     { pk: 3500,   type: "PN",     nom: "PN 1" },
@@ -1752,7 +1869,7 @@ const dataSPA_ALV = [
 // PK locaux 23,625 → 0 (direction PAIR, PK décroissant)
 // Source: PDF notes conducteur pages 3 et 4
 // ============================================================
-const dataALV_SPA = [
+let dataALV_SPA = [
     { pk: 23625,  type: "GARE",   nom: "ALBERTVILLE" },
     { pk: 23200,  type: "SIGNAL", nom: "Nf fin de quai — ID 2 feux" },
     { pk: 22400,  type: "SIGNAL", nom: "Nf 20" },
@@ -1792,7 +1909,7 @@ const dataALV_SPA = [
 // Source: Image 2 (ALV/PBM)
 // Vitesses: HLP/ME100: 80 jusqu'à AIG (49,473) puis 70 / MA100: 70 tout le long
 // ============================================================
-const dataALV_PBM = [
+let dataALV_PBM = [
     { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
     // Signaux entrée/sortie ALV côté PBM (image2: 23,7 bas de la feuille)
     { pk: 23750,  type: "SIGNAL", nom: "Nf Cv 36 // Nf Cv 38 — ID 1 feu" },
@@ -1884,7 +2001,7 @@ const dataALV_PBM = [
 // Vitesses: HLP/ME100: 70 de PBM à MOS (51,6) puis 80 jusqu'à ALV
 //           MA100: 70 tout le long
 // ============================================================
-const dataPBM_ALV = [
+let dataPBM_ALV = [
     // === POMBLIÈRE-ST-MARCEL (PBM) PK 57,2 ===
     { pk: 57229,  type: "GARE",   nom: "POMBLIÈRE-ST-MARCEL (PBM)" },
     { pk: 56800,  type: "INFO",   nom: "GSM-R Canal 2" },
@@ -1959,24 +2076,7 @@ const dataPBM_ALV = [
     { pk: 24400,  type: "SIGNAL", nom: "Nf 22" },
     { pk: 23900,  type: "PN",     nom: "PN 23" },
     { pk: 23400,  type: "INFO",   nom: "Attention fin Voie 3 Nf Cv 67" },
-    { pk: 56200,  type: "TUNNEL_FIN", nom: "Souterrain de PBM" },
-    { pk: 56000,  type: "TUNNEL_DEB", nom: "Souterrain de PBM" },
-    { pk: 55200,  type: "TUNNEL_FIN", nom: "Souterrain de la Saucette" },
-    { pk: 54500,  type: "TUNNEL_DEB", nom: "Souterrain de la Saucette" },
-    { pk: 54350,  type: "TUNNEL_FIN", nom: "Souterrain des Cordeliers 2" },
-    { pk: 54110,  type: "TUNNEL_DEB", nom: "Souterrain des Cordeliers 2" },
-    { pk: 53800,  type: "TUNNEL_FIN", nom: "Souterrain de la Boucle" },
-    { pk: 52450,  type: "TUNNEL_DEB", nom: "Souterrain de la Boucle" },
-    { pk: 52300,  type: "TUNNEL_FIN", nom: "Souterrain des Cordeliers 1" },
-    { pk: 52100,  type: "TUNNEL_DEB", nom: "Souterrain des Cordeliers 1" },
-    { pk: 51200,  type: "TUNNEL_FIN", nom: "Souterrain des Esserts" },
-    { pk: 49700,  type: "TUNNEL_DEB", nom: "Souterrain des Esserts" },
-    { pk: 44500,  type: "TUNNEL_FIN", nom: "Souterrain du champs du Comte" },
-    { pk: 44000,  type: "TUNNEL_DEB", nom: "Souterrain du champ du Comte" },
-    { pk: 40050,  type: "TUNNEL_FIN", nom: "Souterrain des côtes" },
-    { pk: 39800,  type: "TUNNEL_DEB", nom: "Souterrain des côtes" },
-    { pk: 37100,  type: "TUNNEL_FIN", nom: "Souterrain de Cevin" },
-    { pk: 36900,  type: "TUNNEL_DEB", nom: "Souterrain de Cevin" },
+    // Tous les tunnels sont définis via corrections _custom
     { pk: 27850,  type: "SIGNAL",     nom: "A panneau circulaire" },
     // === ALBERTVILLE PK 23,6 ===
     { pk: 23600,  type: "GARE",   nom: "ALBERTVILLE" },
@@ -2097,6 +2197,495 @@ window.restoreLS = function(input) {
     reader.readAsText(file);
     input.value = '';
 };
+
+// === CORRECTIONS EXPORTEES ===
+(function(){
+  dataImpairBase=dataImpairBase.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="137600|VITESSE|100";});
+  dataImpairBase=dataImpairBase.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="155900|TUNNEL_DEB|⬛ Galerie du Record";});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="208088|GARE|ST JEAN DE MAURIENNE"){i.pk=208000;i.nom="ST JEAN DE MAURIENNE";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="176200|SIGNAL|Carré"){i.pk=176215;i.nom="Carré";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="180800|SIGNAL|F"){i.pk=180850;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="183250|SIGNAL|Carré 291"){i.pk=183270;i.nom="Carré 291";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="186700|SIGNAL|Carré 311"){i.pk=186770;i.nom="Carré 311";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="192200|SIGNAL|F"){i.pk=191280;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="195200|SIGNAL|F"){i.pk=195250;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="197100|SIGNAL|Carré 2403"){i.pk=197150;i.nom="Carré 2403";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="198400|SIGNAL|Carré 2407"){i.pk=198540;i.nom="Carré 2407";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="168200|SIGNAL|F"){i.pk=168270;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="178600|SIGNAL|F"){i.pk=178700;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="138200|PN|PN 27"){i.pk=138100;i.nom="PN 27";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="142900|SIGNAL|Carré 11"){i.pk=142945;i.nom="Carré 11";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="149100|SIGNAL|F"){i.pk=149150;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="149344|PN|PN 37"){i.pk=149250;i.nom="PN 37";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="154700|SIGNAL|F"){i.pk=154740;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="154800|PN|PN 39"){i.pk=154850;i.nom="PN 39";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="157400|PN|PN 41"){i.pk=157520;i.nom="PN 41";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="158900|SIGNAL|F"){i.pk=158980;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="159900|PN|PN 42"){i.pk=159940;i.nom="PN 42";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="162500|SIGNAL|Carré 163"){i.pk=162580;i.nom="Carré 163";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="170600|SIGNAL|Carré"){i.pk=170680;i.nom="Nf 170,6";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="172800|SIGNAL|Carré"){i.pk=172800;i.nom="Carré 172,8";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="174500|SIGNAL|Carré 201"){i.pk=174545;i.nom="Carré 201";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="189500|TUNNEL_FIN|Sortie La Chapelle"){i.pk=189550;i.nom="Sortie La Chapelle";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="189100|SIGNAL|F"){i.pk=189150;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="189200|TUNNEL_DEB|⬛ Tunnel La Chapelle"){i.pk=189260;i.nom="⬛ Tunnel La Chapelle";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="193200|SIGNAL|F"){i.pk=193270;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="199300|SIGNAL|C 2461 V1bis / C 2459 V1"){i.pk=199720;i.nom="C 2461 V1bis / C 2459 V1";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="141500|SIGNAL|F"){i.pk=141580;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="142128|PN|PN 32"){i.pk=142050;i.nom="PN 32";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="147500|SIGNAL|F"){i.pk=147560;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="151100|SIGNAL|Carré 123"){i.pk=151150;i.nom="Carré 123";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="152800|SIGNAL|F"){i.pk=152820;i.nom="F";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="156100|TUNNEL_FIN|Sortie Galerie Record"){i.pk=156300;i.nom="Sortie Galerie Record";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="156900|SIGNAL|Carré"){i.pk=156930;i.nom="Carré";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="157200|INFO|DBC Voie 1"){i.pk=157270;i.nom="DBC Voie 1";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="160200|PN|PN 43"){i.pk=160240;i.nom="PN 43";}return i;});
+  dataImpairBase=dataImpairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="161100|SIGNAL|Carré 153"){i.pk=161120;i.nom="Carré 153";}return i;});
+  dataImpairBase.push({pk:156200,type:"TUNNEL_DEB",nom:"Galerie du record",_custom:true});
+  dataImpairBase.push({pk:166900,type:"GARE",nom:"Chamousset",_custom:true});
+  dataImpairBase.push({pk:149627,type:"INFO",nom:"TIV pointe",_custom:true});
+})();
+(function(){
+  dataPairBase=dataPairBase.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="137800|SIGNAL|C 362";});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="158300|SIGNAL|Carré"){i.pk=158350;i.nom="Carré";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="155100|SIGNAL|F"){i.pk=155120;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="153500|SIGNAL|F"){i.pk=153545;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="150764|SIGNAL|C 106 TECS"){i.pk=150790;i.nom="C 106 TECS";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="142128|PN|PN 32"){i.pk=142070;i.nom="PN 32";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="141300|PN|PN 31"){i.pk=141330;i.nom="PN 31";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="194800|SIGNAL|F"){i.pk=194850;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="192300|SIGNAL|Carré"){i.pk=192320;i.nom="Carré";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="173400|SIGNAL|F"){i.pk=173430;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="171200|SIGNAL|F"){i.pk=171230;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="167450|GARE|CHAMOUSSET"){i.pk=167150;i.nom="CHAMOUSSET";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="162300|GARE|ST PIERRE D'ALBIGNY"){i.pk=162420;i.nom="ST PIERRE D'ALBIGNY";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="159900|SIGNAL|F"){i.pk=159880;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="149344|PN|PN 37"){i.pk=149270;i.nom="PN 37";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="148500|PN|PN 36"){i.pk=148510;i.nom="PN 36";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="184600|SIGNAL|F"){i.pk=184620;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="180284|PN|PN 56"){i.pk=180300;i.nom="PN 56";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="179700|SIGNAL|F"){i.pk=179800;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="179010|PN|PN 55"){i.pk=179000;i.nom="PN 55";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="164500|SIGNAL|C 174"){i.pk=164470;i.nom="C 174";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="163100|SIGNAL|C 164"){i.pk=163030;i.nom="C 164";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="157400|PN|PN 41"){i.pk=157480;i.nom="PN 41";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="156800|SIGNAL|F"){i.pk=156820;i.nom="F";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="155900|TUNNEL_DEB|⬛ Galerie du Record"){i.pk=156050;i.nom="⬛ Galerie du Record";}return i;});
+  dataPairBase=dataPairBase.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="154800|PN|PN 39"){i.pk=154860;i.nom="PN 39";}return i;});
+  dataPairBase.push({pk:157215,type:"INFO",nom:"DBC",_custom:true});
+  dataPairBase.push({pk:139583,type:"VITESSE",nom:"TIV pointe",_custom:true});
+  dataPairBase.push({pk:138100,type:"SIGNAL",nom:"C 362",_custom:true});
+})();
+(function(){
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="135630|PN|PN 24a"){i.pk=135750;i.nom="PN 24a";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="126800|SIGNAL|F 126,8"){i.pk=126850;i.nom="F 126,8";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="123500|SIGNAL|Nf + TECS + ID"){i.pk=123450;i.nom="Nf + TECS + ID";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="122000|PN|PN 12"){i.pk=122050;i.nom="PN 12";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="121300|SIGNAL|F"){i.pk=121320;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="121200|PN|PN 11"){i.pk=121270;i.nom="PN 11";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="118100|SIGNAL|F"){i.pk=118050;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="112000|TUNNEL_DEB|⬛ Galerie Grand Rocher"){i.pk=112080;i.nom="⬛ Galerie Grand Rocher";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="99100|PN|PN 61"){i.pk=99050;i.nom="PN 61";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="98100|SIGNAL|F"){i.pk=98150;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="96600|PN|PN 60"){i.pk=96650;i.nom="PN 60";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="96300|SIGNAL|F"){i.pk=96330;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="92000|SIGNAL|Nf"){i.pk=92080;i.nom="Nf";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="86400|TUNNEL_DEB|⬛ Tunnel Pugieu"){i.pk=86490;i.nom="⬛ Tunnel Pugieu";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="85600|SIGNAL|F"){i.pk=85620;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="81500|SIGNAL|Nf"){i.pk=81550;i.nom="Nf";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="78100|SIGNAL|F"){i.pk=78120;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="76200|PN|PN 50"){i.pk=76220;i.nom="PN 50";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="71500|PN|PN 48"){i.pk=71500;i.nom="PN 48";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="67800|SIGNAL|F"){i.pk=67840;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="59300|PN|PN 41"){i.pk=59150;i.nom="PN 41";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="58700|SIGNAL|F"){i.pk=58800;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="56100|SIGNAL|F"){i.pk=56150;i.nom="F";}return i;});
+  dataChamberyAmberieuPair=dataChamberyAmberieuPair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="69400|GARE|TENAY HAUTEVILLE"){i.pk=69470;i.nom="TENAY HAUTEVILLE";}return i;});
+  dataChamberyAmberieuPair.push({pk:137180,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:137000,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:136200,type:"PN",nom:"PN non gardé",_custom:true});
+  dataChamberyAmberieuPair.push({pk:132100,type:"INFO",nom:"TIV Pointe",_custom:true});
+  dataChamberyAmberieuPair.push({pk:118176,type:"VITESSE",nom:"Zone 80",limits:{ME100:80,MA100:80,MA90:80,MA80:80},_custom:true});
+  dataChamberyAmberieuPair.push({pk:116500,type:"VITESSE",nom:"Zone 100",limits:{ME100:100,MA100:100,MA90:100,MA80:80},_custom:true});
+  dataChamberyAmberieuPair.push({pk:89842,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:88317,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:87286,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:79834,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:75000,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:73070,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuPair.push({pk:71380,type:"SIGNAL",nom:"C1",_custom:true});
+  dataChamberyAmberieuPair.push({pk:69327,type:"SIGNAL",nom:"C2",_custom:true});
+  dataChamberyAmberieuPair.push({pk:66374,type:"SIGNAL",nom:"F",_custom:true});
+  dataChamberyAmberieuPair.push({pk:62520,type:"SIGNAL",nom:"F",_custom:true});
+  dataChamberyAmberieuPair.push({pk:53600,type:"INFO",nom:"TIV Pointe",_custom:true});
+})();
+(function(){
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="86400|TUNNEL_FIN|Sortie Pugieu";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="87200|TUNNEL_DEB|⬛ Tunnel Pugieu";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="87200|TUNNEL_FIN|Sortie Pugieu";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="86400|TUNNEL_DEB|⬛ Tunnel Pugieu";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="113500|TUNNEL_FIN|Sortie Brison";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="113900|TUNNEL_DEB|⬛ Tunnel Brison";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="56100|SIGNAL|F (V1)";});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="73100|SIGNAL|Nf 73,1 (V1)"){i.pk=73100;i.nom="Nf 73,1";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="81500|SIGNAL|F (V1)"){i.pk=81500;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="88900|SIGNAL|Nf 703 + TECS 90 (V1)"){i.pk=88900;i.nom="Nf 703 + TECS 90";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="109800|SIGNAL|Nf 301 + TECS (V1)"){i.pk=109800;i.nom="Nf 301 + TECS";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="116400|TUNNEL_FIN|Sortie Colombière"){i.pk=116250;i.nom="Sortie Colombière";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="116400|VITESSE|80"){i.pk=116400;i.nom="80";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="122900|SIGNAL|Nf 407 (V1)"){i.pk=122900;i.nom="Nf 407";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="55300|SIGNAL|F"){i.pk=55360;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="59300|PN|PN 41"){i.pk=59100;i.nom="PN 41";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="60700|SIGNAL|F"){i.pk=60710;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="62250|PN|PN 43"){i.pk=62370;i.nom="PN 43";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="63600|SIGNAL|Nf 503 TECS"){i.pk=63800;i.nom="Nf 503 TECS";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="66500|SIGNAL|F"){i.pk=66550;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="69700|SIGNAL|Nf 11 (V1)"){i.pk=69780;i.nom="Nf 11 (V1)";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="71500|PN|PN 48"){i.pk=71450;i.nom="PN 48";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="76200|PN|PN 50"){i.pk=76220;i.nom="PN 50";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="85300|SIGNAL|Nf 85,3"){i.pk=85320;i.nom="Nf 85,3";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="87300|SIGNAL|Nf 87,3"){i.pk=87330;i.nom="Nf 87,3";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="92700|SIGNAL|F (V1)"){i.pk=92730;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="99600|VITESSE|80"){i.pk=99800;i.nom="80";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="101500|SIGNAL|Nf 301/307 TECS TIDD"){i.pk=101690;i.nom="Nf 301/307 TECS TIDD";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="101800|PN|PN 1"){i.pk=101830;i.nom="PN 1";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="103000|SIGNAL|F"){i.pk=103050;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="104500|SIGNAL|F"){i.pk=104575;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="104400|GARE|VIONZ CHANAZ"){i.pk=104500;i.nom="VIONZ CHANAZ";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="108100|SIGNAL|F"){i.pk=108120;i.nom="F";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="112000|TUNNEL_DEB|⬛ Galerie Grand Rocher"){i.pk=112100;i.nom="⬛ Galerie Grand Rocher";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="113000|SIGNAL|Nf 113"){i.pk=113100;i.nom="Nf 113";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="114700|SIGNAL|Nf 114,7"){i.pk=114740;i.nom="Nf 114,7";}return i;});
+  dataChamberyAmberieuImpair=dataChamberyAmberieuImpair.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="120800|PN|PN 10"){i.pk=120750;i.nom="PN 10";}return i;});
+  dataChamberyAmberieuImpair.push({pk:57100,type:"SIGNAL",nom:"F",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:61450,type:"INFO",nom:"DBC",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:62700,type:"SIGNAL",nom:"F",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:86400,type:"TUNNEL_DEB",nom:"Tunnel de Pugieu",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:87200,type:"TUNNEL_FIN",nom:"Tunnel de Pugieu",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:90800,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:91200,type:"INFO",nom:"S",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:93180,type:"INFO",nom:"DBC",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:99300,type:"INFO",nom:"TIV Pointe 80",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:113500,type:"TUNNEL_DEB",nom:"Tunnel de Brison",_custom:true});
+  dataChamberyAmberieuImpair.push({pk:113900,type:"TUNNEL_FIN",nom:"Tunnel de Brison",_custom:true});
+})();
+(function(){
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="2800|SIGNAL|Nf 601"){i.pk=2800;i.nom="Nf 401";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9600|GARE|GRÉSY-SUR-ISÈRE"){i.pk=9550;i.nom="GRÉSY-SUR-ISÈRE";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9870|SIGNAL|Nf 455 / Nf 453"){i.pk=9680;i.nom="Nf 455 / Nf 453";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="6200|PN|PN 2"){i.pk=6150;i.nom="PN 2";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="14000|PN|PN 8"){i.pk=13950;i.nom="PN 8";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="22400|PN|PN 21"){i.pk=22450;i.nom="PN 21";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="19200|INFO|S"){i.pk=18600;i.nom="S";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="6300|PN|PN 3"){i.pk=6330;i.nom="PN 3";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="7900|SIGNAL|A (panneau circulaire)"){i.pk=7920;i.nom="A (panneau circulaire)";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="12800|PN|PN 7"){i.pk=12830;i.nom="PN 7";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="13950|PN|PN 8"){i.pk=13980;i.nom="PN 8";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="14100|SIGNAL|A (panneau circulaire)"){i.pk=14130;i.nom="A (panneau circulaire)";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="15200|SIGNAL|Nf 471"){i.pk=15240;i.nom="Nf 471";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="15900|SIGNAL|Nf 485 / Nf 483"){i.pk=15950;i.nom="Nf 485 / Nf 483";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="16000|PN|PN 10"){i.pk=16050;i.nom="PN 10";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="16500|PN|PN 12"){i.pk=16550;i.nom="PN 12";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="18200|PN|PN 15"){i.pk=18400;i.nom="PN 15";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="18800|PN|PN 16 (non gardé)"){i.pk=18890;i.nom="PN 16 (non gardé)";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="20600|PN|PN 18"){i.pk=20610;i.nom="PN 18";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="22300|SIGNAL|Nf 13"){i.pk=22330;i.nom="Nf 13";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="22450|PN|PN 21"){i.pk=22400;i.nom="PN 21";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23000|PN|PN 23"){i.pk=23100;i.nom="PN 23";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="22800|SIGNAL|Nf 15"){i.pk=23000;i.nom="Nf 15";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="24000|SIGNAL|Nf fin de quai"){i.pk=23800;i.nom="Nf fin de quai";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="8900|SIGNAL|Nf 441"){i.pk=9000;i.nom="Nf 441";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9200|PN|PN 5"){i.pk=9075;i.nom="PN 5";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9680|SIGNAL|Nf 455 / Nf 453"){i.pk=9700;i.nom="Nf 455 / Nf 453";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9800|PN|PN 6"){i.pk=9780;i.nom="PN 6";}return i;});
+  dataSPA_ALV=dataSPA_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="21100|SIGNAL|A (panneau circulaire en vert)"){i.pk=21150;i.nom="A (panneau circulaire en vert)";}return i;});
+  dataSPA_ALV.push({pk:170,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataSPA_ALV.push({pk:1500,type:"SIGNAL",nom:"Nf",_custom:true});
+})();
+(function(){
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="26800|SIGNAL|Nf 9";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="27300|INFO|TIV POINTE 90";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="27900|SIGNAL|Panneau circulaire";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="34530|TUNNEL_FIN|Sortie Galerie d'Arbine";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="34900|PN|PN 39";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="37300|SIGNAL|Nf 546";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="38800|SIGNAL|Panneau circulaire";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="44100|SIGNAL|Nf 566";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="45400|SIGNAL|Panneau circulaire";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="49000|VITESSE|70";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="51200|INFO|Fin de quai";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="51200|INFO|Dans tunnel — Nf 611";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="52400|INFO|Fin tunnel";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54200|TUNNEL_FIN|Sortie Boucle";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54500|SIGNAL|Panneau circulaire";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="57229|INFO|GSM-R Canal 2";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="32000|SIGNAL|V.ev Nf 523 // Nf 525";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="37150|TUNNEL_FIN|Sortie Souterrain Cevins";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54300|TUNNEL_DEB|⬛ Souterrain des Cordeliers 2 (240m)";});
+  dataALV_PBM=dataALV_PBM.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54540|TUNNEL_FIN|Sortie Cordeliers 2";});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23700|SIGNAL|Nf Cv 36 // Nf Cv 38 — ID 1 feu"){i.pk=23750;i.nom="Nf Cv 36 // Nf Cv 38 — ID 1 feu";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25100|INFO|⚡ Changement pantos !!!"){i.pk=25200;i.nom="⚡ Baissez pantos !!!";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25100|PN|PN 26 — Repère changement pantos"){i.pk=25050;i.nom="PN 26";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25400|INFO|⬆️ Levez pantos !!! Pancarte Z repère"){i.pk=25400;i.nom="⬆️ Levez pantos !!!";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="28000|PN|PN 33 ou 34"){i.pk=27900;i.nom="PN 33";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="30500|SIGNAL|Panneau circulaire"){i.pk=30500;i.nom="A Panneau circulaire";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="33100|SIGNAL|Nf 526"){i.pk=32850;i.nom="Nf 525 / Nf 523";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32900|PN|PN 39"){i.pk=33000;i.nom="PN 39";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="34800|SIGNAL|Panneau circulaire"){i.pk=34800;i.nom="A Panneau circulaire";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="34900|PN|PN 41"){i.pk=34930;i.nom="PN 41";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="36900|SIGNAL|V.ev Nf 545 // Nf 543"){i.pk=36850;i.nom="V.ev Nf 545 // Nf 543";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="36800|GARE|CEVINS (CEI)"){i.pk=36700;i.nom="CEVINS (CEI)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="37200|PN|PN 42"){i.pk=37280;i.nom="PN 42";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="39600|PN|PN 45"){i.pk=39550;i.nom="PN 45";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="46000|INFO|Ep Bozel"){i.pk=46200;i.nom="Ep Bozel";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="46000|GARE|PETIT-CŒUR / LA LÈCHÈRE"){i.pk=46050;i.nom="PETIT-CŒUR / LA LÈCHÈRE";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49000|GARE|AIGUEBLANCHE (AIG)"){i.pk=49500;i.nom="AIGUEBLANCHE (AIG)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49000|SIGNAL|V.ev Nf 595 // Nf 593"){i.pk=49650;i.nom="V.ev Nf 595 // Nf 593";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49600|TUNNEL_DEB|⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération"){i.pk=49800;i.nom="⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51200|SIGNAL|Nf 611"){i.pk=51000;i.nom="Nf 611";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51100|TUNNEL_FIN|Sortie Souterrain Esserts"){i.pk=51200;i.nom="Sortie Souterrain Esserts";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51400|SIGNAL|A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653"){i.pk=51750;i.nom="A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52000|PN|PN 54"){i.pk=51900;i.nom="PN 54";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52800|TUNNEL_DEB|⬛ Souterrain de la Boucle (1400m)"){i.pk=52700;i.nom="⬛ Souterrain de la Boucle (1400m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="54100|TUNNEL_DEB|⬛ Souterrain des Cordeliers 2 (240m)"){i.pk=54200;i.nom="⬛ Souterrain des Cordeliers 2 (240m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="55200|TUNNEL_FIN|Sortie Saucette"){i.pk=55400;i.nom="Sortie Saucette";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="54500|TUNNEL_DEB|⬛ Souterrain de la Saucette (710m)"){i.pk=54700;i.nom="⬛ Souterrain de la Saucette (710m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="54200|TUNNEL_DEB|⬛ Souterrain des Cordeliers 2 (240m)"){i.pk=54300;i.nom="⬛ Souterrain des Cordeliers 2 (240m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="54340|TUNNEL_FIN|Sortie Cordeliers 2"){i.pk=54540;i.nom="Sortie Cordeliers 2";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57200|PN|PN 57"){i.pk=57000;i.nom="PN 57";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25400|INFO|⬆️ Levez pantos !!!"){i.pk=25550;i.nom="⬆️ Levez pantos !!!";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57500|SIGNAL|V.ev Nf 725 // Nf 723"){i.pk=57600;i.nom="V.ev Nf 725 // Nf 723";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="30400|PN|PN 36"){i.pk=30345;i.nom="PN 36";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32200|GARE|LA BATHIE (LHI)"){i.pk=32750;i.nom="LA BATHIE (LHI)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="31900|PN|PN 38"){i.pk=31950;i.nom="PN 38";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="39700|TUNNEL_DEB|⬛ Souterrain des Côtes (313m)"){i.pk=39850;i.nom="⬛ Souterrain des Côtes (313m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="39550|PN|PN 45"){i.pk=39650;i.nom="PN 45";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="24800|PN|PN 25"){i.pk=24880;i.nom="PN 25";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25050|PN|PN 26"){i.pk=25150;i.nom="PN 26";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25200|INFO|⚡ Baissez pantos !!!"){i.pk=25300;i.nom="⚡ Baissez pantos !!!";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="26400|PN|PN 29"){i.pk=26350;i.nom="PN 29";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="26500|PN|PN 30"){i.pk=26450;i.nom="PN 30";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="30500|SIGNAL|A Panneau circulaire"){i.pk=30580;i.nom="A Panneau circulaire";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32850|SIGNAL|Nf 525 / Nf 523"){i.pk=33000;i.nom="Nf 525 / Nf 523";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="33000|PN|PN 39"){i.pk=33100;i.nom="PN 39";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="33400|PN|PN 40"){i.pk=33467;i.nom="PN 40";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="34800|SIGNAL|A Panneau circulaire"){i.pk=34850;i.nom="A Panneau circulaire";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="34930|PN|PN 41"){i.pk=34950;i.nom="PN 41";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="36850|SIGNAL|V.ev Nf 545 // Nf 543"){i.pk=35850;i.nom="Nf 531";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="40010|TUNNEL_FIN|Sortie Souterrain Côtes"){i.pk=40120;i.nom="Sortie Souterrain Côtes";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="42600|SIGNAL|Nf 551"){i.pk=42655;i.nom="Nf 551";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="43700|SIGNAL|V.ev Nf 565 // Nf 563"){i.pk=43600;i.nom="V.ev Nf 565 // Nf 563";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="43700|PN|PN 48"){i.pk=43700;i.nom="PN 48";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="44832|TUNNEL_FIN|Sortie Champs du Comte"){i.pk=44750;i.nom="Sortie Champs du Comte";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="45900|PN|PN 51"){i.pk=46000;i.nom="PN 51";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="46050|GARE|PETIT-CŒUR / LA LÈCHÈRE"){i.pk=46150;i.nom="PETIT-CŒUR / LA LÈCHÈRE";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="46200|INFO|Ep Bozel"){i.pk=46300;i.nom="Ep Bozel";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="48200|INFO|⚡ COUPEZ COURANT !!!"){i.pk=48100;i.nom="⚡ COUPEZ COURANT !!!";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49650|SIGNAL|V.ev Nf 595 // Nf 593"){i.pk=49450;i.nom="V.ev Nf 595 // Nf 593";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51000|SIGNAL|Nf 611"){i.pk=50900;i.nom="Nf 611";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51900|PN|PN 54"){i.pk=51800;i.nom="PN 54";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52400|TUNNEL_FIN|Sortie Cordeliers 1"){i.pk=52250;i.nom="Sortie Cordeliers 1";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52500|SIGNAL|GA 669"){i.pk=52400;i.nom="GA 669";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57000|PN|PN 57"){i.pk=57100;i.nom="PN 57";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52700|TUNNEL_DEB|⬛ Souterrain de la Boucle (1400m)"){i.pk=52550;i.nom="⬛ Souterrain de la Boucle (1400m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52200|TUNNEL_DEB|⬛ Souterrain des Cordeliers 1 (197m)"){i.pk=52100;i.nom="⬛ Souterrain des Cordeliers 1 (197m)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51600|GARE|MOÛTIERS-SALINS BRIDES (MOS)"){i.pk=51500;i.nom="MOÛTIERS-SALINS BRIDES (MOS)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51750|SIGNAL|A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653"){i.pk=51690;i.nom="A Nf 661 / B Nf 659 / C Nf 657 / D Nf 655 / E Nf 653";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49500|GARE|AIGUEBLANCHE (AIG)"){i.pk=49250;i.nom="AIGUEBLANCHE (AIG)";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57100|PN|PN 57"){i.pk=57030;i.nom="PN 57";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23600|GARE|ALBERTVILLE"){i.pk=23400;i.nom="ALBERTVILLE";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23680|PN|PN 23"){i.pk=24150;i.nom="PN 23";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23400|GARE|ALBERTVILLE"){i.pk=23600;i.nom="ALBERTVILLE";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23550|SIGNAL|Nf Cv 36 // Nf Cv 38 — ID 1 feu"){i.pk=23750;i.nom="Nf Cv 36 // Nf Cv 38 — ID 1 feu";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="24100|INFO|GSM-R Canal 2"){i.pk=24250;i.nom="GSM-R Canal 2";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23750|SIGNAL|Nf Cv 36 // Nf Cv 38 — ID 1 feu"){i.pk=23950;i.nom="Nf Cv 36 // Nf Cv 38 — ID 1 feu";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23900|PN|PN 23"){i.pk=24150;i.nom="PN 23";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="26950|PN|PN 31"){i.pk=26900;i.nom="PN 31";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="27900|PN|PN 33"){i.pk=27920;i.nom="PN 33";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="40200|PN|PN 46"){i.pk=40220;i.nom="PN 46";}return i;});
+  dataALV_PBM=dataALV_PBM.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49800|TUNNEL_DEB|⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération"){i.pk=49650;i.nom="⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération";}return i;});
+  dataALV_PBM.push({pk:24400,type:"SIGNAL",nom:"Nf 22",_custom:true});
+  dataALV_PBM.push({pk:26280,type:"SIGNAL",nom:"Nf",_custom:true});
+  dataALV_PBM.push({pk:31850,type:"SIGNAL",nom:"Nf 511",_custom:true});
+  dataALV_PBM.push({pk:36880,type:"SIGNAL",nom:"Nf 545",_custom:true});
+  dataALV_PBM.push({pk:37000,type:"TUNNEL_DEB",nom:"Souterrain de Cevin",_custom:true});
+  dataALV_PBM.push({pk:37160,type:"TUNNEL_FIN",nom:"Souterrain de Cevin",_custom:true});
+  dataALV_PBM.push({pk:41700,type:"SIGNAL",nom:"A (panneau circulaire)",_custom:true});
+  dataALV_PBM.push({pk:44260,type:"TUNNEL_DEB",nom:"Souterrain du champs du Compte",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47800,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:47810,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:48800,type:"SIGNAL",nom:"Nf 581",_custom:true});
+  dataALV_PBM.push({pk:53850,type:"TUNNEL_FIN",nom:"Souterrain de la boucle",_custom:true});
+  dataALV_PBM.push({pk:54000,type:"TUNNEL_DEB",nom:"Souterrain des Cordeliers 2",_custom:true});
+  dataALV_PBM.push({pk:54200,type:"TUNNEL_FIN",nom:"Souterrain des Cordeliers 2",_custom:true});
+  dataALV_PBM.push({pk:55700,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:55700,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:55700,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:55700,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+  dataALV_PBM.push({pk:55700,type:"SIGNAL",nom:"A panneau circulaire",_custom:true});
+})();
+(function(){
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54490|TUNNEL_FIN|Sortie Saucette";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="55200|TUNNEL_DEB|⬛ Souterrain de la Saucette (710m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="56035|TUNNEL_FIN|Sortie Souterrain PBM";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54500|TUNNEL_DEB|⬛ Souterrain des Cordeliers 2 (240m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54260|TUNNEL_FIN|Sortie Cordeliers 2";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54290|TUNNEL_FIN|Sortie Saucette";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="53800|TUNNEL_DEB|⬛ Souterrain de la Boucle (1400m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="52400|TUNNEL_DEB|⬛ Souterrain des Cordeliers 1 (197m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="52200|TUNNEL_FIN|Fin Tunnel / Sortie Cordeliers 1";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="51600|VITESSE|80";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="56200|TUNNEL_DEB|⬛ Souterrain de PBM (165m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="54400|TUNNEL_DEB|⬛ Souterrain des Cordeliers 2 (240m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="51200|TUNNEL_DEB|⬛ Souterrain des Esserts (1500m) ⚠️ mauvaise aération";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="52400|TUNNEL_FIN|Sortie Boucle";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="51600|INFO|Fin de quai / Entrée gare";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="49700|TUNNEL_FIN|Fin Tunnel Esserts";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="49500|INFO|Fin de quai AIG";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="44300|TUNNEL_DEB|⬛ Souterrain du Champs du Comte (532m) ⚠️ mauvaise aération";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="43768|TUNNEL_FIN|Sortie Champs du Comte";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="40100|TUNNEL_DEB|⬛ Souterrain des Côtes (313m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="41700|SIGNAL|Panneau circulaire";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="37000|TUNNEL_DEB|⬛ Souterrain de Cevins";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="36850|TUNNEL_FIN|Sortie Souterrain Cevins";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="34470|TUNNEL_FIN|Sortie Galerie d'Arbine";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="34500|TUNNEL_DEB|⬛ Galerie d'Arbine (30m)";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="39787|TUNNEL_FIN|Sortie Souterrain Côtes";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="35800|SIGNAL|Nf 531";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="31800|SIGNAL|Nf 511";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="30500|SIGNAL|Panneau circulaire";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="26300|SIGNAL|Nf 18";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="25400|INFO|⚡ Changement pantos !!!";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="24400|SIGNAL|Nf 22";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="23700|SIGNAL|Nf Cv 36 // Nf Cv 38 — ID 1 feu";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="47800|SIGNAL|Panneau circulaire";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="53800|TUNNEL_FIN|Souterrain de la Boucle";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="44500|TUNNEL_FIN|Souterrain du champs du Comte";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="44000|TUNNEL_DEB|Souterrain du champ du Comte";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="51200|TUNNEL_FIN|Souterrain des Esserts";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="40050|TUNNEL_FIN|Souterrain des côtes";});
+  dataPBM_ALV=dataPBM_ALV.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="36900|TUNNEL_DEB|Souterrain de Cevin";});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57229|INFO|GSM-R Canal 2"){i.pk=56800;i.nom="GSM-R Canal 2";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51600|PN|PN 54"){i.pk=51750;i.nom="PN 54";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52400|SIGNAL|Nf 666"){i.pk=52600;i.nom="Nf 666";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="52000|SIGNAL|E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620"){i.pk=51400;i.nom="E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51600|GARE|MOÛTIERS-SALINS BRIDES (MOS)"){i.pk=51600;i.nom="MOÛTIERS-SALINS BRIDES (MOS)";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51200|SIGNAL|Nf 596"){i.pk=51000;i.nom="Nf 596";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51000|SIGNAL|Nf 596"){i.pk=49900;i.nom="Nf 596";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49000|GARE|AIGUEBLANCHE (AIG)"){i.pk=49400;i.nom="AIGUEBLANCHE (AIG)";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="46000|GARE|PETIT-CŒUR / LA LÈCHÈRE"){i.pk=46100;i.nom="PETIT-CŒUR / LA LÈCHÈRE";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="46000|INFO|Ep Bozel"){i.pk=46250;i.nom="Ep Bozel";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="45400|SIGNAL|Panneau circulaire"){i.pk=45400;i.nom="A Panneau circulaire";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="43800|PN|PN 48"){i.pk=43700;i.nom="PN 48";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="44100|SIGNAL|Nf 566"){i.pk=43850;i.nom="Nf 566";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="43600|GARE|NOTRE-DAME-DE-BRIANÇON (NAB)"){i.pk=43550;i.nom="NOTRE-DAME-DE-BRIANÇON (NAB)";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="38800|SIGNAL|Panneau circulaire"){i.pk=38800;i.nom="A Panneau circulaire";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="36800|GARE|CEVINS (CEI)"){i.pk=36750;i.nom="CEVINS (CEI)";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="34500|SIGNAL|Panneau circulaire"){i.pk=34500;i.nom="A Panneau circulaire";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32000|SIGNAL|V.ev Nf 512 // Nf 514"){i.pk=32050;i.nom="V.ev Nf 512 // Nf 514";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="28000|PN|PN 33 ou 34"){i.pk=28000;i.nom="PN 33";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="27400|PN|PN 32"){i.pk=27450;i.nom="PN 32";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25100|PN|PN 26 — Repère changement pantos"){i.pk=25100;i.nom="PN 26";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23600|INFO|Attention fin Voie 3 Nf Cv 67"){i.pk=23400;i.nom="Attention fin Voie 3 Nf Cv 67";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="26900|PN|PN 31"){i.pk=26950;i.nom="PN 31";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="43300|SIGNAL|Nf 552 // V.ev Nf 554"){i.pk=43230;i.nom="Nf 552 // V.ev Nf 554";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="39600|PN|PN 45"){i.pk=39650;i.nom="PN 45";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="38800|SIGNAL|A Panneau circulaire"){i.pk=38850;i.nom="A Panneau circulaire";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="34500|SIGNAL|A Panneau circulaire"){i.pk=34550;i.nom="A Panneau circulaire";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="33400|PN|PN 40"){i.pk=33450;i.nom="PN 40";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32050|SIGNAL|V.ev Nf 512 // Nf 514"){i.pk=32480;i.nom="V.ev Nf 512 // Nf 514";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="26300|PN|PN 29"){i.pk=26350;i.nom="PN 29";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="25800|INFO|⬇️ Baissez pantos !!! Pancarte Z repère"){i.pk=25900;i.nom="⬇️ Baissez pantos !!! Pancarte Z repère";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="24800|PN|PN 25"){i.pk=24900;i.nom="PN 25";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="24600|SIGNAL|Nf 11"){i.pk=24550;i.nom="Nf 11";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23900|PN|PN 23"){i.pk=24150;i.nom="PN 23";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="49900|SIGNAL|Nf 596"){i.pk=50100;i.nom="Nf 596";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="48400|INFO|⚡ COUPEZ COURANT !!!"){i.pk=48200;i.nom="⚡ COUPEZ COURANT !!!";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57100|SIGNAL|Nf 712 // V.ev Nf 714"){i.pk=57130;i.nom="Nf 712 // V.ev Nf 714";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57229|GARE|POMBLIÈRE-ST-MARCEL (PBM)"){i.pk=57300;i.nom="POMBLIÈRE-ST-MARCEL";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="57000|PN|PN 57"){i.pk=57030;i.nom="PN 57";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="45900|PN|PN 51"){i.pk=45950;i.nom="PN 51";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32000|GARE|LA BATHIE (LHI)"){i.pk=32800;i.nom="LA BATHIE (LHI)";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="27850|SIGNAL|A panneau circulaire"){i.pk=27900;i.nom="A panneau circulaire";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="27300|INFO|TIV POINTE 90"){i.pk=27100;i.nom="TIV POINTE 90";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="26800|SIGNAL|Nf 9"){i.pk=26600;i.nom="Nf 9";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="24500|PN|PN 24"){i.pk=24490;i.nom="PN 24";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="51400|SIGNAL|E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620"){i.pk=51250;i.nom="E Nf 612 / D Nf 614 / C Nf 616 / B Nf 618 / A Nf 620";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="43850|SIGNAL|Nf 566"){i.pk=44120;i.nom="Nf 566";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="36300|SIGNAL|Nf 532 // V.ev Nf 534"){i.pk=36420;i.nom="Nf 532 // V.ev Nf 534";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="33100|SIGNAL|Nf 526"){i.pk=33150;i.nom="Nf 526";}return i;});
+  dataPBM_ALV=dataPBM_ALV.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="32900|PN|PN 39"){i.pk=33080;i.nom="PN 39";}return i;});
+  dataPBM_ALV.push({pk:56200,type:"TUNNEL_FIN",nom:"Souterrain de PBM",_custom:true});
+  dataPBM_ALV.push({pk:56000,type:"TUNNEL_DEB",nom:"Souterrain de PBM",_custom:true});
+  dataPBM_ALV.push({pk:55170,type:"TUNNEL_FIN",nom:"Souterrain de la Saucette",_custom:true});
+  dataPBM_ALV.push({pk:54500,type:"TUNNEL_DEB",nom:"Souterrain de la Saucette",_custom:true});
+  dataPBM_ALV.push({pk:54350,type:"TUNNEL_FIN",nom:"Souterrain des Cordeliers 2",_custom:true});
+  dataPBM_ALV.push({pk:54110,type:"TUNNEL_DEB",nom:"Souterrain des Cordeliers 2",_custom:true});
+  dataPBM_ALV.push({pk:54000,type:"SIGNAL",nom:"A (Panneau circulaire)",_custom:true});
+  dataPBM_ALV.push({pk:53900,type:"TUNNEL_FIN",nom:"Souterrain de la Boucle",_custom:true});
+  dataPBM_ALV.push({pk:52450,type:"TUNNEL_DEB",nom:"Souterrain de la Boucle",_custom:true});
+  dataPBM_ALV.push({pk:52300,type:"TUNNEL_FIN",nom:"Souterrain des Cordeliers 1",_custom:true});
+  dataPBM_ALV.push({pk:52100,type:"TUNNEL_DEB",nom:"Souterrain des Cordeliers 1",_custom:true});
+  dataPBM_ALV.push({pk:51050,type:"TUNNEL_FIN",nom:"Souterrain des Esserts",_custom:true});
+  dataPBM_ALV.push({pk:49700,type:"TUNNEL_DEB",nom:"Souterrain des Esserts",_custom:true});
+  dataPBM_ALV.push({pk:44760,type:"TUNNEL_FIN",nom:"Souterrain du champs du compte",_custom:true});
+  dataPBM_ALV.push({pk:44250,type:"TUNNEL_DEB",nom:"Souterrain du champs du compte",_custom:true});
+  dataPBM_ALV.push({pk:40110,type:"TUNNEL_FIN",nom:"Souterrain des côtes",_custom:true});
+  dataPBM_ALV.push({pk:39800,type:"TUNNEL_DEB",nom:"Souterrain des côtes",_custom:true});
+  dataPBM_ALV.push({pk:37100,type:"TUNNEL_FIN",nom:"Souterrain de Cevin",_custom:true});
+  dataPBM_ALV.push({pk:37000,type:"TUNNEL_DEB",nom:"Souterrain de Cevin",_custom:true});
+})();
+(function(){
+  dataALV_SPA=dataALV_SPA.filter(function(i){return (i.pk+"|"+i.type+"|"+i.nom)!=="18800|PN|PN 16 non gardé";});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="18500|INFO|S"){i.pk=19200;i.nom="S";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="15500|SIGNAL|Nf 672 / Nf 674"){i.pk=15500;i.nom="Nf 472 / Nf 474";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="6830|PN|PN 3"){i.pk=6350;i.nom="PN 3";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="18200|PN|PN 15"){i.pk=18390;i.nom="PN 15";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="12800|PN|PN 7"){i.pk=12850;i.nom="PN 7";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9900|SIGNAL|Nf 456"){i.pk=9850;i.nom="Nf 456";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9800|PN|PN 6"){i.pk=9750;i.nom="PN 6";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9300|SIGNAL|Nf 442 / Nf 444"){i.pk=9210;i.nom="Nf 442 / Nf 444";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="9200|PN|PN 5"){i.pk=9100;i.nom="PN 5";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="2100|SIGNAL|Nf 178"){i.pk=2050;i.nom="Nf 178";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="22200|PN|PN 21"){i.pk=22350;i.nom="PN 21";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="15800|GARE|FRONTENEX"){i.pk=15880;i.nom="FRONTENEX";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="16600|SIGNAL|Nf 486"){i.pk=16600;i.nom="Nf 486";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="14000|PN|PN 8"){i.pk=14050;i.nom="PN 8";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="11000|SIGNAL|A (panneau circulaire)"){i.pk=11050;i.nom="A (panneau circulaire)";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="6200|PN|PN 2"){i.pk=6175;i.nom="PN 2";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="3100|SIGNAL|A (panneau circulaire)"){i.pk=3150;i.nom="A (panneau circulaire)";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23200|SIGNAL|Nf fin de quai — ID 2 feux"){i.pk=23350;i.nom="Nf fin de quai — ID 2 feux";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="23625|GARE|ALBERTVILLE"){i.pk=23550;i.nom="ALBERTVILLE";}return i;});
+  dataALV_SPA=dataALV_SPA.map(function(i){if((i.pk+"|"+i.type+"|"+i.nom)==="3000|INFO|TIV pointe 60"){i.pk=3060;i.nom="TIV pointe 60";}return i;});
+  dataALV_SPA.push({pk:23100,type:"PN",nom:"PN 23",_custom:true});
+  dataALV_SPA.push({pk:18890,type:"PN",nom:"PN 16 non gardé",_custom:true});
+  dataALV_SPA.push({pk:16480,type:"PN",nom:"PN 12",_custom:true});
+  dataALV_SPA.push({pk:700,type:"SIGNAL",nom:"Nf164 (pk 163,1)",_custom:true});
+  dataALV_SPA.push({pk:0,type:"GARE",nom:"SPA",_custom:true});
+})();
+// === FIN CORRECTIONS ===
 </script>
 
 </body>
