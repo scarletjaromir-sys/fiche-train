@@ -2205,77 +2205,85 @@
         // ============================================================
         // GPS
         // ============================================================
+        let lastValidSpeedTime = 0; // timestamp de la dernière vitesse GPS valide reçue
+
+        function enterTunnelMode() {
+            if (isGpsLost) return;
+            isGpsLost = true;
+            gpsLostTimer = null;
+            if (manualSpeedMs === null) manualSpeedMs = lastKnownSpeedMs;
+            document.getElementById('speedDisplay').innerText = Math.round((manualSpeedMs || 0) * 3.6);
+            document.getElementById('btnGpsAdjMinus').style.display = 'flex';
+            document.getElementById('btnGpsAdjPlus').style.display = 'flex';
+            document.querySelector('.speed-group').classList.add('gps-lost-mode');
+            document.getElementById('gpsStatus').className = "status-pill lost";
+            document.getElementById('gpsStatus').innerText = "TUNNEL";
+        }
+
+        function exitTunnelMode(speed) {
+            isGpsLost = false;
+            manualSpeedMs = null;
+            currentSpeedMs = speed;
+            lastKnownSpeedMs = speed;
+            document.getElementById('btnGpsAdjMinus').style.display = 'none';
+            document.getElementById('btnGpsAdjPlus').style.display = 'none';
+            document.querySelector('.speed-group').classList.remove('gps-lost-mode');
+            if (isGpsActive && !isPaused) {
+                document.getElementById('gpsStatus').className = "status-pill ok";
+                document.getElementById('gpsStatus').innerText = "GPS ON";
+            }
+        }
+
         function initGPS() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(onGpsSuccess, onGpsError, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
             }
         }
+
         function onGpsSuccess(pos) {
             let speed = pos.coords.speed;
-            // Sur iOS en tunnel, speed === null = perte de signal réelle → traiter comme onGpsError
-            if (speed === null) {
-                onGpsError({ code: 0, message: 'speed null' });
-                return;
-            }
-            if (speed < 0) speed = 0;
+            if (speed === null || speed < 0) speed = 0;
 
-            // Si on est déjà en mode GPS perdu (tunnel) et que la vitesse GPS revient au-dessus de 5 km/h
-            // → on sort du mode tunnel
-            if (isGpsLost) {
-                if (speed >= 1.4) {
-                    // Sortie du tunnel : retour mode normal
-                    isGpsLost = false;
-                    manualSpeedMs = null;
-                    currentSpeedMs = speed;
-                    lastKnownSpeedMs = speed;
-                    document.getElementById('btnGpsAdjMinus').style.display = 'none';
-                    document.getElementById('btnGpsAdjPlus').style.display = 'none';
-                    document.querySelector('.speed-group').classList.remove('gps-lost-mode');
-                    if (isGpsActive && !isPaused) {
-                        document.getElementById('gpsStatus').className = "status-pill ok";
-                        document.getElementById('gpsStatus').innerText = "GPS ON";
-                    }
+            // Vitesse valide (> 5 km/h) : sortie de tunnel ou mode normal
+            if (speed >= 1.4) {
+                lastValidSpeedTime = Date.now();
+                if (gpsLostTimer) { clearTimeout(gpsLostTimer); gpsLostTimer = null; }
+                if (isGpsLost) {
+                    exitTunnelMode(speed);
+                    return;
                 }
-                // Sinon on reste en tunnel, on n'écrase pas currentSpeedMs
+                currentSpeedMs = speed;
+                lastKnownSpeedMs = speed;
+                if (isGpsActive && !isPaused) {
+                    document.getElementById('gpsStatus').className = "status-pill ok";
+                    document.getElementById('gpsStatus').innerText = "GPS ON";
+                }
                 return;
             }
 
-            // Mode normal : détection d'entrée en tunnel
-            // Si on roulait (>5 km/h) et que la vitesse tombe sous 5 km/h → tunnel probable
-            if (speed < 1.4 && lastKnownSpeedMs > 1.4) {
-                // Ne PAS écraser currentSpeedMs, on continue à rouler à la dernière vitesse connue
-                // Démarrer le timer pour passer en mode tunnel après 1 seconde
+            // Vitesse nulle ou quasi-nulle
+            if (isGpsLost) return; // déjà en mode tunnel, on ne touche à rien
+
+            // Si on roulait et que la vitesse est tombée à 0 :
+            // on attend 3 secondes sans vitesse valide avant de passer en mode tunnel
+            // (évite le faux positif à l'arrêt en gare)
+            if (lastKnownSpeedMs > 1.4) {
                 if (!gpsLostTimer) {
                     gpsLostTimer = setTimeout(function () {
-                        isGpsLost = true;
-                        gpsLostTimer = null;
-                        if (manualSpeedMs === null) manualSpeedMs = lastKnownSpeedMs;
-                        document.getElementById('speedDisplay').innerText = Math.round((manualSpeedMs || 0) * 3.6);
-                        document.getElementById('btnGpsAdjMinus').style.display = 'flex';
-                        document.getElementById('btnGpsAdjPlus').style.display = 'flex';
-                        document.querySelector('.speed-group').classList.add('gps-lost-mode');
-                        document.getElementById('gpsStatus').className = "status-pill lost";
-                        document.getElementById('gpsStatus').innerText = "TUNNEL";
-                    }, 1000);
+                        // 3 secondes sans vitesse valide → mode tunnel
+                        if (!isGpsLost) enterTunnelMode();
+                    }, 3000);
                 }
-                // Important : on garde currentSpeedMs à sa dernière valeur > 0 pour que la fiche continue de défiler
-                // On ne fait rien d'autre, on attend soit le déclenchement du timer, soit le retour de la vitesse
-                return;
             }
+        }
 
-            // Cas normal : vitesse GPS valide, on met à jour
-            currentSpeedMs = speed;
-            if (speed > 0.5) lastKnownSpeedMs = speed;
-
-            // Si un timer tunnel était en cours mais la vitesse est revenue → on annule
-            if (gpsLostTimer) {
-                clearTimeout(gpsLostTimer);
-                gpsLostTimer = null;
-            }
-
-            if (isGpsActive && !isPaused) {
-                document.getElementById('gpsStatus').className = "status-pill ok";
-                document.getElementById('gpsStatus').innerText = "GPS ON";
+        function onGpsError(err) {
+            document.getElementById('gpsStatus').className = "status-pill waiting";
+            document.getElementById('gpsStatus').innerText = "SIGNAL...";
+            if (!gpsLostTimer && !isGpsLost) {
+                gpsLostTimer = setTimeout(function () {
+                    enterTunnelMode();
+                }, 1000);
             }
         }
         function onGpsError(err) {
