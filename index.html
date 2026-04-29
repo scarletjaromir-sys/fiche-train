@@ -2212,7 +2212,12 @@
         }
         function onGpsSuccess(pos) {
             let speed = pos.coords.speed;
-            if (speed === null || speed < 0) speed = 0;
+            // Sur iOS en tunnel, speed === null = perte de signal réelle → traiter comme onGpsError
+            if (speed === null) {
+                onGpsError({ code: 0, message: 'speed null' });
+                return;
+            }
+            if (speed < 0) speed = 0;
 
             // Si on est déjà en mode GPS perdu (tunnel) et que la vitesse GPS revient au-dessus de 5 km/h
             // → on sort du mode tunnel
@@ -2274,24 +2279,21 @@
             }
         }
         function onGpsError(err) {
-            if (isGpsActive) {
-                document.getElementById('gpsStatus').className = "status-pill waiting";
-                document.getElementById('gpsStatus').innerText = "SIGNAL...";
-                if (!gpsLostTimer && !isGpsLost) {
-                    gpsLostTimer = setTimeout(function () {
-                        isGpsLost = true;
-                        gpsLostTimer = null;
-                        if (manualSpeedMs === null) manualSpeedMs = lastKnownSpeedMs;
-                        // Mettre à jour l'affichage vitesse
-                        document.getElementById('speedDisplay').innerText = Math.round((manualSpeedMs || 0) * 3.6);
-                        // Afficher les boutons +/- dans le HUD
-                        document.getElementById('btnGpsAdjMinus').style.display = 'flex';
-                        document.getElementById('btnGpsAdjPlus').style.display = 'flex';
-                        document.querySelector('.speed-group').classList.add('gps-lost-mode');
-                        document.getElementById('gpsStatus').className = "status-pill lost";
-                        document.getElementById('gpsStatus').innerText = "TUNNEL";
-                    }, 1000);
-                }
+            // Déclenche le mode tunnel même si isGpsActive est false (perte signal réelle)
+            document.getElementById('gpsStatus').className = "status-pill waiting";
+            document.getElementById('gpsStatus').innerText = "SIGNAL...";
+            if (!gpsLostTimer && !isGpsLost) {
+                gpsLostTimer = setTimeout(function () {
+                    isGpsLost = true;
+                    gpsLostTimer = null;
+                    if (manualSpeedMs === null) manualSpeedMs = lastKnownSpeedMs;
+                    document.getElementById('speedDisplay').innerText = Math.round((manualSpeedMs || 0) * 3.6);
+                    document.getElementById('btnGpsAdjMinus').style.display = 'flex';
+                    document.getElementById('btnGpsAdjPlus').style.display = 'flex';
+                    document.querySelector('.speed-group').classList.add('gps-lost-mode');
+                    document.getElementById('gpsStatus').className = "status-pill lost";
+                    document.getElementById('gpsStatus').innerText = "TUNNEL";
+                }, 1000);
             }
         }
 
